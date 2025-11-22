@@ -6,11 +6,14 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 )
 
 type Config struct {
 	Addr        string
 	DatabaseURL string
+	JWTSecret   string
+	TokenTTL    time.Duration
 	LogLevel    slog.Level
 	LogFormat   string
 }
@@ -20,15 +23,27 @@ func Load() (Config, error) {
 	cfg := Config{
 		Addr:        getenv("ADDR", ":4200"),
 		DatabaseURL: os.Getenv("DATABASE_URL"),
+		JWTSecret:   os.Getenv("JWT_SECRET"),
 		LogFormat:   getenv("LOG_FORMAT", "json"),
+		TokenTTL:    7 * 24 * time.Hour,
 	}
 
 	var errs []error
 	if cfg.DatabaseURL == "" {
 		errs = append(errs, errors.New("DATABASE_URL is required"))
 	}
+	if len(cfg.JWTSecret) < 32 {
+		errs = append(errs, errors.New("JWT_SECRET must be at least 32 characters"))
+	}
 	if err := cfg.LogLevel.UnmarshalText([]byte(getenv("LOG_LEVEL", "info"))); err != nil {
 		errs = append(errs, fmt.Errorf("LOG_LEVEL: %w", err))
+	}
+	if v := os.Getenv("TOKEN_TTL"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("TOKEN_TTL: %w", err))
+		}
+		cfg.TokenTTL = d
 	}
 	return cfg, errors.Join(errs...)
 }

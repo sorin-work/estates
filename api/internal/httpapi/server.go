@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/sorin-work/estates/api/internal/auth"
 	"github.com/sorin-work/estates/api/internal/domain"
 )
 
@@ -16,26 +17,30 @@ import (
 // declares its own slice of it next to its handlers.
 type Store interface {
 	Ping(ctx context.Context) error
+	userStore
 }
 
 type Server struct {
-	store Store
-	log   *slog.Logger
+	store  Store
+	tokens *auth.Tokens
+	log    *slog.Logger
 	// today returns the current date; tests replace it.
 	today func() domain.Date
 }
 
 type Options struct {
 	Store  Store
+	Tokens *auth.Tokens
 	Logger *slog.Logger
 	Today  func() domain.Date
 }
 
 func New(o Options) *Server {
 	s := &Server{
-		store: o.Store,
-		log:   o.Logger,
-		today: o.Today,
+		store:  o.Store,
+		tokens: o.Tokens,
+		log:    o.Logger,
+		today:  o.Today,
 	}
 	if s.log == nil {
 		s.log = slog.Default()
@@ -63,6 +68,15 @@ func (s *Server) Handler() http.Handler {
 
 	r.Get("/healthz", s.health)
 
+	r.Route("/api", func(r chi.Router) {
+		r.Post("/auth/register", s.handle(s.register))
+		r.Post("/auth/login", s.handle(s.login))
+
+		r.Group(func(r chi.Router) {
+			r.Use(s.requireAuth)
+			r.Get("/auth/me", s.handle(s.me))
+		})
+	})
 	return r
 }
 

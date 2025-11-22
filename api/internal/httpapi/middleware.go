@@ -1,8 +1,10 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -40,4 +42,34 @@ func (s *Server) recoverPanics(next http.Handler) http.Handler {
 		}()
 		next.ServeHTTP(w, r)
 	})
+}
+
+type ctxKey int
+
+const userIDKey ctxKey = iota
+
+// requireAuth rejects requests without a valid bearer token and stores the
+// user ID in the request context.
+func (s *Server) requireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		header := r.Header.Get("Authorization")
+		token, ok := strings.CutPrefix(header, "Bearer ")
+		if !ok || token == "" {
+			writeError(w, http.StatusUnauthorized, "unauthorized", "missing bearer token")
+			return
+		}
+		userID, err := s.tokens.Verify(token)
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "unauthorized", "invalid or expired token")
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userIDKey, userID)))
+	})
+}
+
+// userID returns the authenticated user's ID. It must only be called behind
+// requireAuth.
+func userID(r *http.Request) string {
+	id, _ := r.Context().Value(userIDKey).(string)
+	return id
 }

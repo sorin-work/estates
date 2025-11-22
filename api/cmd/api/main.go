@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sorin-work/estates/api/internal/auth"
 	"github.com/sorin-work/estates/api/internal/config"
 	"github.com/sorin-work/estates/api/internal/database"
 	"github.com/sorin-work/estates/api/internal/httpapi"
@@ -50,8 +51,13 @@ func run() error {
 
 	st := store.New(pool)
 
+	tokens, err := auth.NewTokens(cfg.JWTSecret, cfg.TokenTTL)
+	if err != nil {
+		return err
+	}
 	api := httpapi.New(httpapi.Options{
 		Store:  st,
+		Tokens: tokens,
 		Logger: log,
 	})
 

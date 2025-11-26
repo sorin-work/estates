@@ -18,6 +18,8 @@ import (
 type Store interface {
 	Ping(ctx context.Context) error
 	userStore
+	propertyStore
+	unitStore
 }
 
 type Server struct {
@@ -75,6 +77,8 @@ func (s *Server) Handler() http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireAuth)
 			r.Get("/auth/me", s.handle(s.me))
+			r.Route("/properties", s.propertyRoutes)
+			r.Route("/units", s.unitRoutes)
 		})
 	})
 	return r

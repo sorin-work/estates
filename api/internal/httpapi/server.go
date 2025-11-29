@@ -21,6 +21,7 @@ type Store interface {
 	propertyStore
 	unitStore
 	tenantStore
+	leaseStore
 }
 
 type Server struct {
@@ -81,6 +82,7 @@ func (s *Server) Handler() http.Handler {
 			r.Route("/properties", s.propertyRoutes)
 			r.Route("/units", s.unitRoutes)
 			r.Route("/tenants", s.tenantRoutes)
+			r.Route("/leases", s.leaseRoutes)
 		})
 	})
 	return r

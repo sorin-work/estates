@@ -20,6 +20,7 @@ type Store interface {
 	userStore
 	propertyStore
 	unitStore
+	tenantStore
 }
 
 type Server struct {
@@ -79,6 +80,7 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/auth/me", s.handle(s.me))
 			r.Route("/properties", s.propertyRoutes)
 			r.Route("/units", s.unitRoutes)
+			r.Route("/tenants", s.tenantRoutes)
 		})
 	})
 	return r

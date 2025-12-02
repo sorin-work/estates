@@ -3,21 +3,24 @@ package store
 import (
 	"context"
 	"time"
+
+	"github.com/sorin-work/estates/api/internal/domain"
 )
 
 type Property struct {
-	ID           string    `db:"id" json:"id"`
-	Name         string    `db:"name" json:"name"`
-	Kind         string    `db:"kind" json:"kind"`
-	AddressLine1 string    `db:"address_line1" json:"address_line1"`
-	AddressLine2 string    `db:"address_line2" json:"address_line2"`
-	City         string    `db:"city" json:"city"`
-	Region       string    `db:"region" json:"region"`
-	PostalCode   string    `db:"postal_code" json:"postal_code"`
-	Notes        string    `db:"notes" json:"notes"`
-	UnitCount    int       `db:"unit_count" json:"unit_count"`
-	CreatedAt    time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt    time.Time `db:"updated_at" json:"updated_at"`
+	ID            string    `db:"id" json:"id"`
+	Name          string    `db:"name" json:"name"`
+	Kind          string    `db:"kind" json:"kind"`
+	AddressLine1  string    `db:"address_line1" json:"address_line1"`
+	AddressLine2  string    `db:"address_line2" json:"address_line2"`
+	City          string    `db:"city" json:"city"`
+	Region        string    `db:"region" json:"region"`
+	PostalCode    string    `db:"postal_code" json:"postal_code"`
+	Notes         string    `db:"notes" json:"notes"`
+	UnitCount     int       `db:"unit_count" json:"unit_count"`
+	OccupiedUnits int       `db:"occupied_units" json:"occupied_units"`
+	CreatedAt     time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt     time.Time `db:"updated_at" json:"updated_at"`
 }
 
 type PropertyInput struct {
@@ -31,21 +34,27 @@ type PropertyInput struct {
 	Notes        string `json:"notes"`
 }
 
-// propertySelect expects $1 = owner ID.
+// propertySelect expects $1 = owner ID and $2 = the date occupancy is
+// measured on.
 const propertySelect = `
 	SELECT p.id, p.name, p.kind, p.address_line1, p.address_line2, p.city, p.region,
 	       p.postal_code, p.notes, p.created_at, p.updated_at,
-	       (SELECT count(*) FROM units u WHERE u.property_id = p.id)::int AS unit_count
+	       (SELECT count(*) FROM units u WHERE u.property_id = p.id)::int AS unit_count,
+	       (SELECT count(DISTINCT u.id) FROM units u
+	          JOIN leases l ON l.unit_id = u.id
+	         WHERE u.property_id = p.id
+	           AND l.start_date <= $2
+	           AND LEAST(l.end_date, COALESCE(l.terminated_on, l.end_date)) >= $2)::int AS occupied_units
 	  FROM properties p
 	 WHERE p.owner_id = $1`
 
-func (s *Store) ListProperties(ctx context.Context, ownerID string) ([]Property, error) {
-	rows, err := s.pool.Query(ctx, propertySelect+` ORDER BY lower(p.name)`, ownerID)
+func (s *Store) ListProperties(ctx context.Context, ownerID string, asOf domain.Date) ([]Property, error) {
+	rows, err := s.pool.Query(ctx, propertySelect+` ORDER BY lower(p.name)`, ownerID, asOf)
 	return collectAll[Property](rows, err)
 }
 
-func (s *Store) GetProperty(ctx context.Context, ownerID, id string) (Property, error) {
-	rows, err := s.pool.Query(ctx, propertySelect+` AND p.id = $2`, ownerID, id)
+func (s *Store) GetProperty(ctx context.Context, ownerID, id string, asOf domain.Date) (Property, error) {
+	rows, err := s.pool.Query(ctx, propertySelect+` AND p.id = $3`, ownerID, asOf, id)
 	return collectOne[Property](rows, err)
 }
 

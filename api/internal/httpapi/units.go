@@ -7,12 +7,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/sorin-work/estates/api/internal/domain"
 	"github.com/sorin-work/estates/api/internal/store"
 )
 
 type unitStore interface {
-	ListUnits(ctx context.Context, ownerID, propertyID string) ([]store.Unit, error)
-	GetUnit(ctx context.Context, ownerID, id string) (store.Unit, error)
+	ListUnits(ctx context.Context, ownerID, propertyID string, asOf domain.Date) ([]store.Unit, error)
+	GetUnit(ctx context.Context, ownerID, id string, asOf domain.Date) (store.Unit, error)
 	CreateUnit(ctx context.Context, ownerID, propertyID string, in store.UnitInput) (string, error)
 	UpdateUnit(ctx context.Context, ownerID, id string, in store.UnitInput) error
 	DeleteUnit(ctx context.Context, ownerID, id string) error
@@ -30,7 +31,7 @@ func (s *Server) listUnits(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	units, err := s.store.ListUnits(r.Context(), userID(r), propertyID)
+	units, err := s.store.ListUnits(r.Context(), userID(r), propertyID, s.today())
 	if err != nil {
 		return err
 	}
@@ -43,10 +44,10 @@ func (s *Server) listPropertyUnits(w http.ResponseWriter, r *http.Request) error
 	if err != nil {
 		return err
 	}
-	if _, err := s.store.GetProperty(r.Context(), userID(r), id); err != nil {
+	if _, err := s.store.GetProperty(r.Context(), userID(r), id, s.today()); err != nil {
 		return notFoundAs(err, "property")
 	}
-	units, err := s.store.ListUnits(r.Context(), userID(r), id)
+	units, err := s.store.ListUnits(r.Context(), userID(r), id, s.today())
 	if err != nil {
 		return err
 	}
@@ -59,7 +60,7 @@ func (s *Server) getUnit(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	u, err := s.store.GetUnit(r.Context(), userID(r), id)
+	u, err := s.store.GetUnit(r.Context(), userID(r), id, s.today())
 	if err != nil {
 		return notFoundAs(err, "unit")
 	}
@@ -98,7 +99,7 @@ func (s *Server) createUnit(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return notFoundAs(err, "property")
 	}
-	u, err := s.store.GetUnit(r.Context(), userID(r), id)
+	u, err := s.store.GetUnit(r.Context(), userID(r), id, s.today())
 	if err != nil {
 		return err
 	}
@@ -118,7 +119,7 @@ func (s *Server) updateUnit(w http.ResponseWriter, r *http.Request) error {
 	if err := s.store.UpdateUnit(r.Context(), userID(r), id, in); err != nil {
 		return notFoundAs(err, "unit")
 	}
-	u, err := s.store.GetUnit(r.Context(), userID(r), id)
+	u, err := s.store.GetUnit(r.Context(), userID(r), id, s.today())
 	if err != nil {
 		return err
 	}

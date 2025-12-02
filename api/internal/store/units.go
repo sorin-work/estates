@@ -3,6 +3,8 @@ package store
 import (
 	"context"
 	"time"
+
+	"github.com/sorin-work/estates/api/internal/domain"
 )
 
 type Unit struct {
@@ -14,6 +16,8 @@ type Unit struct {
 	Bathrooms       float64   `db:"bathrooms" json:"bathrooms"`
 	SquareFeet      *int      `db:"square_feet" json:"square_feet"`
 	MarketRentCents int64     `db:"market_rent_cents" json:"market_rent_cents"`
+	CurrentLeaseID  *string   `db:"current_lease_id" json:"current_lease_id"`
+	CurrentTenant   *string   `db:"current_tenant" json:"current_tenant"`
 	CreatedAt       time.Time `db:"created_at" json:"created_at"`
 }
 
@@ -25,28 +29,39 @@ type UnitInput struct {
 	MarketRentCents int64   `json:"market_rent_cents"`
 }
 
-// unitSelect expects $1 = owner ID.
+// unitSelect expects $1 = owner ID and $2 = the date occupancy is measured on.
 const unitSelect = `
 	SELECT u.id, u.property_id, p.name AS property_name, u.label, u.bedrooms, u.bathrooms,
-	       u.square_feet, u.market_rent_cents, u.created_at
+	       u.square_feet, u.market_rent_cents, u.created_at,
+	       cur.id AS current_lease_id, cur.tenant_name AS current_tenant
 	  FROM units u
 	  JOIN properties p ON p.id = u.property_id
+	  LEFT JOIN LATERAL (
+	        SELECT l.id, t.first_name || ' ' || t.last_name AS tenant_name
+	          FROM leases l
+	          JOIN tenants t ON t.id = l.tenant_id
+	         WHERE l.unit_id = u.id
+	           AND l.start_date <= $2
+	           AND LEAST(l.end_date, COALESCE(l.terminated_on, l.end_date)) >= $2
+	         ORDER BY l.start_date DESC
+	         LIMIT 1
+	  ) cur ON true
 	 WHERE p.owner_id = $1`
 
 // ListUnits lists units, optionally only those of one property.
-func (s *Store) ListUnits(ctx context.Context, ownerID, propertyID string) ([]Unit, error) {
+func (s *Store) ListUnits(ctx context.Context, ownerID, propertyID string, asOf domain.Date) ([]Unit, error) {
 	q := unitSelect
-	args := []any{ownerID}
+	args := []any{ownerID, asOf}
 	if propertyID != "" {
-		q += ` AND u.property_id = $2`
+		q += ` AND u.property_id = $3`
 		args = append(args, propertyID)
 	}
 	rows, err := s.pool.Query(ctx, q+` ORDER BY lower(p.name), u.label`, args...)
 	return collectAll[Unit](rows, err)
 }
 
-func (s *Store) GetUnit(ctx context.Context, ownerID, id string) (Unit, error) {
-	rows, err := s.pool.Query(ctx, unitSelect+` AND u.id = $2`, ownerID, id)
+func (s *Store) GetUnit(ctx context.Context, ownerID, id string, asOf domain.Date) (Unit, error) {
+	rows, err := s.pool.Query(ctx, unitSelect+` AND u.id = $3`, ownerID, asOf, id)
 	return collectOne[Unit](rows, err)
 }
 

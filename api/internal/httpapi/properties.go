@@ -12,8 +12,8 @@ import (
 )
 
 type propertyStore interface {
-	ListProperties(ctx context.Context, ownerID string) ([]store.Property, error)
-	GetProperty(ctx context.Context, ownerID, id string) (store.Property, error)
+	ListProperties(ctx context.Context, ownerID string, asOf domain.Date) ([]store.Property, error)
+	GetProperty(ctx context.Context, ownerID, id string, asOf domain.Date) (store.Property, error)
 	CreateProperty(ctx context.Context, ownerID string, in store.PropertyInput) (string, error)
 	UpdateProperty(ctx context.Context, ownerID, id string, in store.PropertyInput) error
 	DeleteProperty(ctx context.Context, ownerID, id string) error
@@ -30,7 +30,7 @@ func (s *Server) propertyRoutes(r chi.Router) {
 }
 
 func (s *Server) listProperties(w http.ResponseWriter, r *http.Request) error {
-	props, err := s.store.ListProperties(r.Context(), userID(r))
+	props, err := s.store.ListProperties(r.Context(), userID(r), s.today())
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func (s *Server) getProperty(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	p, err := s.store.GetProperty(r.Context(), userID(r), id)
+	p, err := s.store.GetProperty(r.Context(), userID(r), id, s.today())
 	if err != nil {
 		return notFoundAs(err, "property")
 	}
@@ -81,7 +81,7 @@ func (s *Server) createProperty(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	p, err := s.store.GetProperty(r.Context(), userID(r), id)
+	p, err := s.store.GetProperty(r.Context(), userID(r), id, s.today())
 	if err != nil {
 		return err
 	}
@@ -101,7 +101,7 @@ func (s *Server) updateProperty(w http.ResponseWriter, r *http.Request) error {
 	if err := s.store.UpdateProperty(r.Context(), userID(r), id, in); err != nil {
 		return notFoundAs(err, "property")
 	}
-	p, err := s.store.GetProperty(r.Context(), userID(r), id)
+	p, err := s.store.GetProperty(r.Context(), userID(r), id, s.today())
 	if err != nil {
 		return err
 	}

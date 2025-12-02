@@ -6,13 +6,14 @@ import (
 )
 
 type Tenant struct {
-	ID        string    `db:"id" json:"id"`
-	FirstName string    `db:"first_name" json:"first_name"`
-	LastName  string    `db:"last_name" json:"last_name"`
-	Email     string    `db:"email" json:"email"`
-	Phone     string    `db:"phone" json:"phone"`
-	Notes     string    `db:"notes" json:"notes"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	ID         string    `db:"id" json:"id"`
+	FirstName  string    `db:"first_name" json:"first_name"`
+	LastName   string    `db:"last_name" json:"last_name"`
+	Email      string    `db:"email" json:"email"`
+	Phone      string    `db:"phone" json:"phone"`
+	Notes      string    `db:"notes" json:"notes"`
+	LeaseCount int       `db:"lease_count" json:"lease_count"`
+	CreatedAt  time.Time `db:"created_at" json:"created_at"`
 }
 
 type TenantInput struct {
@@ -24,7 +25,8 @@ type TenantInput struct {
 }
 
 const tenantSelect = `
-	SELECT t.id, t.first_name, t.last_name, t.email, t.phone, t.notes, t.created_at
+	SELECT t.id, t.first_name, t.last_name, t.email, t.phone, t.notes, t.created_at,
+	       (SELECT count(*) FROM leases l WHERE l.tenant_id = t.id)::int AS lease_count
 	  FROM tenants t
 	 WHERE t.owner_id = $1`
 

@@ -175,11 +175,21 @@ func (s *Store) UpdateLease(ctx context.Context, ownerID, id string, in LeaseInp
 			id, in.UnitID, in.TenantID, in.StartDate, in.EndDate, in.RentCents, in.DepositCents,
 			in.DueDay, in.GraceDays, in.LateFeeCents, in.Notes,
 		)
+		if err != nil {
+			return err
+		}
+		// Rent outside the new dates no longer applies. Missing periods are
+		// added again by the billing service.
+		_, err = tx.Exec(ctx, `
+			DELETE FROM charges
+			 WHERE lease_id = $1 AND kind = 'rent' AND (due_date < $2 OR due_date > $3)`,
+			id, in.StartDate, in.EndDate)
 		return err
 	})
 }
 
-// TerminateLease ends a lease early.
+// TerminateLease ends a lease early. Rent due after the termination date is
+// removed.
 func (s *Store) TerminateLease(ctx context.Context, ownerID, id string, on domain.Date) error {
 	return s.inTx(ctx, func(tx pgx.Tx) error {
 		l, err := s.getLeaseTx(ctx, tx, ownerID, id)
@@ -189,12 +199,15 @@ func (s *Store) TerminateLease(ctx context.Context, ownerID, id string, on domai
 		if on.Before(l.StartDate) {
 			return conflict("termination date is before the lease starts")
 		}
-		_, err = tx.Exec(ctx, `UPDATE leases SET terminated_on = $2, updated_at = now() WHERE id = $1`, id, on)
+		if _, err := tx.Exec(ctx, `UPDATE leases SET terminated_on = $2, updated_at = now() WHERE id = $1`, id, on); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `DELETE FROM charges WHERE lease_id = $1 AND kind = 'rent' AND due_date > $2`, id, on)
 		return err
 	})
 }
 
-// DeleteLease removes a lease.
+// DeleteLease removes a lease with its charges and payments.
 func (s *Store) DeleteLease(ctx context.Context, ownerID, id string) error {
 	return execOne(s.pool.Exec(ctx, `
 		DELETE FROM leases l USING units u, properties p

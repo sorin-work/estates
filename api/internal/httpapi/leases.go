@@ -18,6 +18,9 @@ type leaseStore interface {
 	UpdateLease(ctx context.Context, ownerID, id string, in store.LeaseInput) error
 	TerminateLease(ctx context.Context, ownerID, id string, on domain.Date) error
 	DeleteLease(ctx context.Context, ownerID, id string) error
+	ListCharges(ctx context.Context, ownerID, leaseID string) ([]store.Charge, error)
+	CreateCharge(ctx context.Context, ownerID, leaseID string, in store.ChargeInput) (string, error)
+	DeleteCharge(ctx context.Context, ownerID, id string) error
 }
 
 var leaseStatuses = []string{domain.LeaseUpcoming, domain.LeaseActive, domain.LeaseEnded, domain.LeaseTerminated}
@@ -29,6 +32,13 @@ func (s *Server) leaseRoutes(r chi.Router) {
 	r.Put("/{id}", s.handle(s.updateLease))
 	r.Delete("/{id}", s.handle(s.deleteLease))
 	r.Post("/{id}/terminate", s.handle(s.terminateLease))
+	r.Get("/{id}/ledger", s.handle(s.leaseLedger))
+	r.Post("/{id}/charges", s.handle(s.createCharge))
+	r.Post("/{id}/payments", s.handle(s.createPayment))
+}
+
+func (s *Server) chargeRoutes(r chi.Router) {
+	r.Delete("/{id}", s.handle(s.deleteCharge))
 }
 
 func (s *Server) withStatus(l store.Lease) store.Lease {
@@ -196,6 +206,119 @@ func (s *Server) deleteLease(w http.ResponseWriter, r *http.Request) error {
 	}
 	if err := s.store.DeleteLease(r.Context(), userID(r), id); err != nil {
 		return notFoundAs(err, "lease")
+	}
+	w.WriteHeader(http.StatusNoContent)
+	return nil
+}
+
+type ledgerCharge struct {
+	store.Charge
+	PaidCents      int64  `json:"paid_cents"`
+	RemainingCents int64  `json:"remaining_cents"`
+	Status         string `json:"status"`
+}
+
+type ledgerResponse struct {
+	AsOf          domain.Date     `json:"as_of"`
+	ChargedCents  int64           `json:"charged_cents"`
+	PaidCents     int64           `json:"paid_cents"`
+	BalanceCents  int64           `json:"balance_cents"`
+	OverdueCents  int64           `json:"overdue_cents"`
+	OldestOverdue *domain.Date    `json:"oldest_overdue"`
+	DaysOverdue   int             `json:"days_overdue"`
+	Charges       []ledgerCharge  `json:"charges"`
+	Payments      []store.Payment `json:"payments"`
+}
+
+func (s *Server) leaseLedger(w http.ResponseWriter, r *http.Request) error {
+	l, err := s.loadLease(r)
+	if err != nil {
+		return err
+	}
+	charges, err := s.store.ListCharges(r.Context(), userID(r), l.ID)
+	if err != nil {
+		return err
+	}
+	payments, _, err := s.store.ListPayments(r.Context(), userID(r), store.PaymentFilter{LeaseID: l.ID, Limit: 500})
+	if err != nil {
+		return err
+	}
+
+	in := make([]domain.LedgerCharge, len(charges))
+	byID := make(map[string]store.Charge, len(charges))
+	for i, c := range charges {
+		in[i] = domain.LedgerCharge{ID: c.ID, Kind: c.Kind, DueDate: c.DueDate, AmountCents: c.AmountCents}
+		byID[c.ID] = c
+	}
+	pays := make([]domain.LedgerPayment, len(payments))
+	for i, p := range payments {
+		pays[i] = domain.LedgerPayment{ID: p.ID, PaidOn: p.PaidOn, AmountCents: p.AmountCents}
+	}
+
+	asOf := s.today()
+	ledger := domain.BuildLedger(in, pays, l.GraceDays, asOf)
+	resp := ledgerResponse{
+		AsOf:         asOf,
+		ChargedCents: ledger.ChargedCents,
+		PaidCents:    ledger.PaidCents,
+		BalanceCents: ledger.BalanceCents,
+		OverdueCents: ledger.OverdueCents,
+		DaysOverdue:  ledger.DaysOverdue,
+		Charges:      make([]ledgerCharge, 0, len(ledger.Charges)),
+		Payments:     payments,
+	}
+	if !ledger.OldestOverdue.IsZero() {
+		d := ledger.OldestOverdue
+		resp.OldestOverdue = &d
+	}
+	for _, c := range ledger.Charges {
+		resp.Charges = append(resp.Charges, ledgerCharge{
+			Charge:         byID[c.ID],
+			PaidCents:      c.PaidCents,
+			RemainingCents: c.RemainingCents,
+			Status:         c.Status,
+		})
+	}
+	writeJSON(w, http.StatusOK, resp)
+	return nil
+}
+
+func (s *Server) createCharge(w http.ResponseWriter, r *http.Request) error {
+	id, err := pathID(r, "lease")
+	if err != nil {
+		return err
+	}
+	var in store.ChargeInput
+	if err := decode(w, r, &in); err != nil {
+		return err
+	}
+	trim(&in.Kind, &in.Description)
+
+	var v validator
+	v.check(domain.OneOf(in.Kind, domain.ChargeKinds) && in.Kind != domain.ChargeRent, "kind",
+		"must be one of deposit, utility, late_fee or other")
+	v.check(in.AmountCents > 0, "amount_cents", "must be more than zero")
+	v.check(!in.DueDate.IsZero(), "due_date", "is required")
+	v.maxLen(in.Description, "description", 200)
+	if err := v.err(); err != nil {
+		return err
+	}
+
+	chargeID, err := s.store.CreateCharge(r.Context(), userID(r), id, in)
+	if err != nil {
+		return notFoundAs(err, "lease")
+	}
+	writeJSON(w, http.StatusCreated, map[string]string{"id": chargeID})
+	return nil
+}
+
+func (s *Server) deleteCharge(w http.ResponseWriter, r *http.Request) error {
+	id, err := pathID(r, "charge")
+	if err != nil {
+		return err
+	}
+	if err := s.store.DeleteCharge(r.Context(), userID(r), id); err != nil {
+		return notFoundAs(err, "charge")
 	}
 	w.WriteHeader(http.StatusNoContent)
 	return nil

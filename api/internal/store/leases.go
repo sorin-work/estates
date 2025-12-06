@@ -32,6 +32,16 @@ type Lease struct {
 	Status string `db:"-" json:"status"`
 }
 
+// Terms returns the rent terms used to build the rent schedule.
+func (l Lease) Terms() domain.RentTerms {
+	return domain.RentTerms{
+		Start:     l.StartDate,
+		End:       domain.EffectiveEnd(l.EndDate, l.TerminatedOn),
+		RentCents: l.RentCents,
+		DueDay:    l.DueDay,
+	}
+}
+
 type LeaseInput struct {
 	UnitID       string      `json:"unit_id"`
 	TenantID     string      `json:"tenant_id"`

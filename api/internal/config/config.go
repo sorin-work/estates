@@ -16,16 +16,19 @@ type Config struct {
 	TokenTTL    time.Duration
 	LogLevel    slog.Level
 	LogFormat   string
+	// BillingInterval is how often rent charges and late fees are generated.
+	BillingInterval time.Duration
 }
 
 // Load reads configuration from the environment.
 func Load() (Config, error) {
 	cfg := Config{
-		Addr:        getenv("ADDR", ":4200"),
-		DatabaseURL: os.Getenv("DATABASE_URL"),
-		JWTSecret:   os.Getenv("JWT_SECRET"),
-		LogFormat:   getenv("LOG_FORMAT", "json"),
-		TokenTTL:    7 * 24 * time.Hour,
+		Addr:            getenv("ADDR", ":4200"),
+		DatabaseURL:     os.Getenv("DATABASE_URL"),
+		JWTSecret:       os.Getenv("JWT_SECRET"),
+		LogFormat:       getenv("LOG_FORMAT", "json"),
+		TokenTTL:        7 * 24 * time.Hour,
+		BillingInterval: time.Hour,
 	}
 
 	var errs []error
@@ -44,6 +47,13 @@ func Load() (Config, error) {
 			errs = append(errs, fmt.Errorf("TOKEN_TTL: %w", err))
 		}
 		cfg.TokenTTL = d
+	}
+	if v := os.Getenv("BILLING_INTERVAL"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			errs = append(errs, fmt.Errorf("BILLING_INTERVAL: invalid duration %q", v))
+		}
+		cfg.BillingInterval = d
 	}
 	return cfg, errors.Join(errs...)
 }

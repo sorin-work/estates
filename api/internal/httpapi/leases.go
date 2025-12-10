@@ -126,10 +126,14 @@ func decodeLease(w http.ResponseWriter, r *http.Request) (store.LeaseInput, erro
 	return in, v.err()
 }
 
-// reload fetches a lease after a change, with its status.
-func (s *Server) reload(ctx context.Context, ownerID, leaseID string) (store.Lease, error) {
+// billNow generates the rent a lease is due so far, so a new or edited lease
+// shows the right balance without waiting for the background job.
+func (s *Server) billNow(ctx context.Context, ownerID, leaseID string) (store.Lease, error) {
 	l, err := s.store.GetLease(ctx, ownerID, leaseID)
 	if err != nil {
+		return store.Lease{}, err
+	}
+	if _, err := s.billing.GenerateRent(ctx, l, s.today()); err != nil {
 		return store.Lease{}, err
 	}
 	return s.withStatus(l), nil
@@ -144,7 +148,7 @@ func (s *Server) createLease(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	l, err := s.reload(r.Context(), userID(r), id)
+	l, err := s.billNow(r.Context(), userID(r), id)
 	if err != nil {
 		return err
 	}
@@ -164,7 +168,7 @@ func (s *Server) updateLease(w http.ResponseWriter, r *http.Request) error {
 	if err := s.store.UpdateLease(r.Context(), userID(r), id, in); err != nil {
 		return notFoundAs(err, "lease")
 	}
-	l, err := s.reload(r.Context(), userID(r), id)
+	l, err := s.billNow(r.Context(), userID(r), id)
 	if err != nil {
 		return err
 	}

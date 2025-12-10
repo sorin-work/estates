@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/sorin-work/estates/api/internal/auth"
+	"github.com/sorin-work/estates/api/internal/billing"
 	"github.com/sorin-work/estates/api/internal/config"
 	"github.com/sorin-work/estates/api/internal/database"
 	"github.com/sorin-work/estates/api/internal/httpapi"
@@ -50,16 +51,20 @@ func run() error {
 	}
 
 	st := store.New(pool)
+	bill := billing.New(st, log)
 
 	tokens, err := auth.NewTokens(cfg.JWTSecret, cfg.TokenTTL)
 	if err != nil {
 		return err
 	}
 	api := httpapi.New(httpapi.Options{
-		Store:  st,
-		Tokens: tokens,
-		Logger: log,
+		Store:   st,
+		Billing: bill,
+		Tokens:  tokens,
+		Logger:  log,
 	})
+
+	go bill.Run(ctx, cfg.BillingInterval)
 
 	srv := &http.Server{
 		Addr:              cfg.Addr,

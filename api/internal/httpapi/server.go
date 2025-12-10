@@ -11,6 +11,7 @@ import (
 
 	"github.com/sorin-work/estates/api/internal/auth"
 	"github.com/sorin-work/estates/api/internal/domain"
+	"github.com/sorin-work/estates/api/internal/store"
 )
 
 // Store is everything the handlers need from the data layer. Each feature
@@ -25,27 +26,35 @@ type Store interface {
 	paymentStore
 }
 
+// Billing generates charges and works out lease balances.
+type Billing interface {
+	GenerateRent(ctx context.Context, l store.Lease, asOf domain.Date) (int, error)
+}
+
 type Server struct {
-	store  Store
-	tokens *auth.Tokens
-	log    *slog.Logger
+	store   Store
+	billing Billing
+	tokens  *auth.Tokens
+	log     *slog.Logger
 	// today returns the current date; tests replace it.
 	today func() domain.Date
 }
 
 type Options struct {
-	Store  Store
-	Tokens *auth.Tokens
-	Logger *slog.Logger
-	Today  func() domain.Date
+	Store   Store
+	Billing Billing
+	Tokens  *auth.Tokens
+	Logger  *slog.Logger
+	Today   func() domain.Date
 }
 
 func New(o Options) *Server {
 	s := &Server{
-		store:  o.Store,
-		tokens: o.Tokens,
-		log:    o.Logger,
-		today:  o.Today,
+		store:   o.Store,
+		billing: o.Billing,
+		tokens:  o.Tokens,
+		log:     o.Logger,
+		today:   o.Today,
 	}
 	if s.log == nil {
 		s.log = slog.Default()

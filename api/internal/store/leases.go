@@ -220,6 +220,28 @@ func (s *Store) getLeaseTx(ctx context.Context, tx pgx.Tx, ownerID, id string) (
 	return collectOne[Lease](rows, err)
 }
 
+// BillableLeases returns leases of every owner that may need rent generated
+// on asOf: started already and not ended more than two months ago.
+func (s *Store) BillableLeases(ctx context.Context, asOf domain.Date) ([]Lease, error) {
+	rows, err := s.pool.Query(ctx, leaseSelect+`
+		WHERE l.start_date <= $1
+		  AND LEAST(l.end_date, COALESCE(l.terminated_on, l.end_date)) >= $1::date - 62
+		ORDER BY l.id`, asOf)
+	return collectAll[Lease](rows, err)
+}
+
+// LeaseOwner returns the owner of a lease, for background jobs that work
+// across owners.
+func (s *Store) LeaseOwner(ctx context.Context, leaseID string) (string, error) {
+	var owner string
+	err := s.pool.QueryRow(ctx, `
+		SELECT p.owner_id FROM leases l
+		  JOIN units u ON u.id = l.unit_id
+		  JOIN properties p ON p.id = u.property_id
+		 WHERE l.id = $1`, leaseID).Scan(&owner)
+	return owner, notFound(err)
+}
+
 func nullIfEmpty(s string) any {
 	if s == "" {
 		return nil

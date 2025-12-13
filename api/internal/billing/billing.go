@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sort"
 	"time"
 
 	"github.com/sorin-work/estates/api/internal/domain"
@@ -15,7 +16,9 @@ import (
 // Store is the subset of the data layer billing needs.
 type Store interface {
 	BillableLeases(ctx context.Context, asOf domain.Date) ([]store.Lease, error)
+	ListLeases(ctx context.Context, ownerID string, f store.LeaseFilter) ([]store.Lease, error)
 	InsertRent(ctx context.Context, leaseID string, rent []domain.ScheduledRent) (int, error)
+	LedgerEntries(ctx context.Context, ownerID, leaseID string) (map[string]*store.LedgerEntries, error)
 }
 
 type Service struct {
@@ -78,6 +81,29 @@ func (s *Service) BillAll(ctx context.Context, asOf domain.Date) (Result, error)
 	return total, nil
 }
 
+// BillOwner bills every lease of one owner. It backs the "generate charges
+// now" button so landlords do not have to wait for the next scheduled run.
+func (s *Service) BillOwner(ctx context.Context, ownerID string, asOf domain.Date) (Result, error) {
+	leases, err := s.store.ListLeases(ctx, ownerID, store.LeaseFilter{})
+	if err != nil {
+		return Result{}, err
+	}
+	var total Result
+	for _, l := range leases {
+		if l.StartDate.After(asOf) {
+			continue
+		}
+		r, err := s.BillLease(ctx, l, asOf)
+		if err != nil {
+			return total, err
+		}
+		total.Leases++
+		total.Rent += r.Rent
+		total.LateFees += r.LateFees
+	}
+	return total, nil
+}
+
 // Run bills all leases now and then on every tick until ctx is cancelled.
 func (s *Service) Run(ctx context.Context, every time.Duration) {
 	run := func() {
@@ -99,4 +125,57 @@ func (s *Service) Run(ctx context.Context, every time.Duration) {
 			run()
 		}
 	}
+}
+
+// Balance is one lease's position as shown in the rent roll.
+type Balance struct {
+	Lease         store.Lease  `json:"lease"`
+	BalanceCents  int64        `json:"balance_cents"`
+	OverdueCents  int64        `json:"overdue_cents"`
+	OldestOverdue *domain.Date `json:"oldest_overdue"`
+	DaysOverdue   int          `json:"days_overdue"`
+}
+
+// Balances returns the balance of every lease that is in force or still has
+// money owing, sorted with the most overdue first.
+func (s *Service) Balances(ctx context.Context, ownerID string, asOf domain.Date) ([]Balance, error) {
+	leases, err := s.store.ListLeases(ctx, ownerID, store.LeaseFilter{})
+	if err != nil {
+		return nil, err
+	}
+	entries, err := s.store.LedgerEntries(ctx, ownerID, "")
+	if err != nil {
+		return nil, err
+	}
+
+	out := []Balance{}
+	for _, l := range leases {
+		l.Status = domain.LeaseStatus(l.StartDate, l.EndDate, l.TerminatedOn, asOf)
+		e := entries[l.ID]
+		if e == nil {
+			e = &store.LedgerEntries{}
+		}
+		ledger := domain.BuildLedger(e.Charges, e.Payments, l.GraceDays, asOf)
+		if l.Status != domain.LeaseActive && ledger.BalanceCents == 0 {
+			continue
+		}
+		b := Balance{
+			Lease:        l,
+			BalanceCents: ledger.BalanceCents,
+			OverdueCents: ledger.OverdueCents,
+			DaysOverdue:  ledger.DaysOverdue,
+		}
+		if !ledger.OldestOverdue.IsZero() {
+			d := ledger.OldestOverdue
+			b.OldestOverdue = &d
+		}
+		out = append(out, b)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].DaysOverdue != out[j].DaysOverdue {
+			return out[i].DaysOverdue > out[j].DaysOverdue
+		}
+		return out[i].BalanceCents > out[j].BalanceCents
+	})
+	return out, nil
 }

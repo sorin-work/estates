@@ -10,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/sorin-work/estates/api/internal/auth"
+	"github.com/sorin-work/estates/api/internal/billing"
 	"github.com/sorin-work/estates/api/internal/domain"
 	"github.com/sorin-work/estates/api/internal/store"
 )
@@ -29,6 +30,8 @@ type Store interface {
 // Billing generates charges and works out lease balances.
 type Billing interface {
 	GenerateRent(ctx context.Context, l store.Lease, asOf domain.Date) (int, error)
+	BillOwner(ctx context.Context, ownerID string, asOf domain.Date) (billing.Result, error)
+	Balances(ctx context.Context, ownerID string, asOf domain.Date) ([]billing.Balance, error)
 }
 
 type Server struct {
@@ -95,6 +98,7 @@ func (s *Server) Handler() http.Handler {
 			r.Route("/leases", s.leaseRoutes)
 			r.Route("/charges", s.chargeRoutes)
 			r.Route("/payments", s.paymentRoutes)
+			r.Route("/rent", s.rentRoutes)
 		})
 	})
 	return r

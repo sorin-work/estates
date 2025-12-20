@@ -3,6 +3,8 @@ import { GuestOnly, RequireAuth } from './auth/guards';
 import Layout from './components/Layout';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
+import PropertiesPage from './pages/PropertiesPage';
+import PropertyDetailPage from './pages/PropertyDetailPage';
 import RegisterPage from './pages/RegisterPage';
 
 export default function App() {
@@ -15,6 +17,8 @@ export default function App() {
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>
           <Route index element={<Navigate to="/properties" replace />} />
+          <Route path="properties" element={<PropertiesPage />} />
+          <Route path="properties/:id" element={<PropertyDetailPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>

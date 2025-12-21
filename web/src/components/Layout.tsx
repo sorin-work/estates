@@ -4,6 +4,7 @@ import { useAuth } from '../auth/AuthContext';
 const nav = [
   { to: '/', label: 'Dashboard', end: true },
   { to: '/properties', label: 'Properties' },
+  { to: '/tenants', label: 'Tenants' },
 ];
 
 export default function Layout() {

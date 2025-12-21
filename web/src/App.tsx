@@ -6,6 +6,8 @@ import NotFoundPage from './pages/NotFoundPage';
 import PropertiesPage from './pages/PropertiesPage';
 import PropertyDetailPage from './pages/PropertyDetailPage';
 import RegisterPage from './pages/RegisterPage';
+import TenantDetailPage from './pages/TenantDetailPage';
+import TenantsPage from './pages/TenantsPage';
 
 export default function App() {
   return (
@@ -19,6 +21,8 @@ export default function App() {
           <Route index element={<Navigate to="/properties" replace />} />
           <Route path="properties" element={<PropertiesPage />} />
           <Route path="properties/:id" element={<PropertyDetailPage />} />
+          <Route path="tenants" element={<TenantsPage />} />
+          <Route path="tenants/:id" element={<TenantDetailPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>

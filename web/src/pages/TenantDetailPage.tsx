@@ -1,12 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
+import { listLeases } from '../api/leases';
 import { deleteTenant, getTenant, updateTenant } from '../api/tenants';
 import type { TenantInput } from '../api/types';
 import TenantForm from '../components/forms/TenantForm';
 import Modal from '../components/Modal';
 import PageHeader from '../components/PageHeader';
 import { ErrorState, Loading } from '../components/States';
+import { LeaseStatusBadge } from '../components/StatusBadge';
+import { formatDate } from '../lib/dates';
+import { formatMoney } from '../lib/money';
 
 export default function TenantDetailPage() {
   const { id = '' } = useParams();
@@ -15,11 +19,13 @@ export default function TenantDetailPage() {
   const [editing, setEditing] = useState(false);
 
   const tenant = useQuery({ queryKey: ['tenants', 'detail', id], queryFn: () => getTenant(id) });
+  const leases = useQuery({ queryKey: ['leases', { tenant_id: id }], queryFn: () => listLeases({ tenant_id: id }) });
 
   const update = useMutation({
     mutationFn: (input: TenantInput) => updateTenant(id, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['tenants'] });
+      void queryClient.invalidateQueries({ queryKey: ['leases'] });
       setEditing(false);
     },
   });
@@ -43,6 +49,9 @@ export default function TenantDetailPage() {
         subtitle={[t.email, t.phone].filter(Boolean).join(' · ') || 'No contact details'}
         actions={
           <>
+            <Link to={`/leases?new=1&tenant_id=${t.id}`} className="button">
+              New lease
+            </Link>
             <button type="button" className="button secondary" onClick={() => setEditing(true)}>
               Edit
             </button>
@@ -59,6 +68,43 @@ export default function TenantDetailPage() {
         }
       />
       {t.notes && <p className="notes">{t.notes}</p>}
+
+      <section className="card">
+        <div className="card-header">
+          <h2>Leases</h2>
+        </div>
+        {leases.data && leases.data.length === 0 && <p className="muted">No leases yet.</p>}
+        {leases.data && leases.data.length > 0 && (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Property</th>
+                <th>Term</th>
+                <th className="num">Rent</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leases.data.map((l) => (
+                <tr key={l.id}>
+                  <td>
+                    <Link to={`/leases/${l.id}`}>
+                      {l.property_name} · {l.unit_label}
+                    </Link>
+                  </td>
+                  <td>
+                    {formatDate(l.start_date)} – {formatDate(l.terminated_on ?? l.end_date)}
+                  </td>
+                  <td className="num">{formatMoney(l.rent_cents)}</td>
+                  <td>
+                    <LeaseStatusBadge status={l.status} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
 
       {editing && (
         <Modal title="Edit tenant" onClose={() => setEditing(false)}>

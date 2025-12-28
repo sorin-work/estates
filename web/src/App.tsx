@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router';
 import { GuestOnly, RequireAuth } from './auth/guards';
 import Layout from './components/Layout';
+import LeaseDetailPage from './pages/LeaseDetailPage';
 import LeasesPage from './pages/LeasesPage';
 import LoginPage from './pages/LoginPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="tenants" element={<TenantsPage />} />
           <Route path="tenants/:id" element={<TenantDetailPage />} />
           <Route path="leases" element={<LeasesPage />} />
+          <Route path="leases/:id" element={<LeaseDetailPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>

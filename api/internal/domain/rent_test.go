@@ -65,6 +65,23 @@ func TestRentScheduleProratesLastPeriod(t *testing.T) {
 	}
 }
 
+func TestRentScheduleDueDayClampsToShortMonths(t *testing.T) {
+	rs := RentSchedule(terms("2026-01-31", "2026-06-30", 100000, 31), MustParseDate("2026-05-31"))
+	want := []string{"2026-01-31", "2026-02-28", "2026-03-31", "2026-04-30", "2026-05-31"}
+	got := dueDates(rs)
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("charge %d due %s, want %s", i, got[i], want[i])
+		}
+		if rs[i].Prorated {
+			t.Errorf("charge %d should not be prorated: %+v", i, rs[i])
+		}
+	}
+}
+
 func TestRentScheduleStopsAtThrough(t *testing.T) {
 	rs := RentSchedule(terms("2026-01-01", "2026-12-31", 100000, 1), MustParseDate("2025-12-31"))
 	if len(rs) != 0 {

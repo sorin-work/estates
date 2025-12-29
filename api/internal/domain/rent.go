@@ -6,7 +6,8 @@ type RentTerms struct {
 	Start     Date
 	End       Date
 	RentCents int64
-	// DueDay is the day of the month rent is due.
+	// DueDay is the day of the month rent is due, 1-31. Months shorter than
+	// DueDay use their last day instead, so 31 means "end of the month".
 	DueDay int
 }
 
@@ -21,7 +22,7 @@ type ScheduledRent struct {
 
 func dueDateFor(anyDayOfMonth Date, dueDay int) Date {
 	y, m := anyDayOfMonth.Year(), anyDayOfMonth.Month()
-	return NewDate(y, m, dueDay)
+	return NewDate(y, m, min(dueDay, DaysIn(y, m)))
 }
 
 // nextDueDate returns the first due date strictly after d.

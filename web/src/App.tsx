@@ -8,6 +8,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import PropertiesPage from './pages/PropertiesPage';
 import PropertyDetailPage from './pages/PropertyDetailPage';
 import RegisterPage from './pages/RegisterPage';
+import RentPage from './pages/RentPage';
 import TenantDetailPage from './pages/TenantDetailPage';
 import TenantsPage from './pages/TenantsPage';
 
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="tenants/:id" element={<TenantDetailPage />} />
           <Route path="leases" element={<LeasesPage />} />
           <Route path="leases/:id" element={<LeaseDetailPage />} />
+          <Route path="rent" element={<RentPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>

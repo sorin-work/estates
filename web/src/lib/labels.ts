@@ -1,4 +1,12 @@
-import type { ChargeKind, ChargeStatus, LeaseStatus, PaymentMethod, PropertyKind } from '../api/types';
+import type {
+  ChargeKind,
+  ChargeStatus,
+  LeaseStatus,
+  MaintenancePriority,
+  MaintenanceStatus,
+  PaymentMethod,
+  PropertyKind,
+} from '../api/types';
 
 export const propertyKinds: Record<PropertyKind, string> = {
   single_family: 'Single family',
@@ -38,6 +46,30 @@ export const paymentMethods: Record<PaymentMethod, string> = {
   cash: 'Cash',
   card: 'Card',
   other: 'Other',
+};
+
+export const maintenanceStatuses: Record<MaintenanceStatus, string> = {
+  open: 'Open',
+  in_progress: 'In progress',
+  on_hold: 'On hold',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+};
+
+export const maintenancePriorities: Record<MaintenancePriority, string> = {
+  low: 'Low',
+  normal: 'Normal',
+  high: 'High',
+  urgent: 'Urgent',
+};
+
+/** Verb for the button that moves a request to a status. */
+export const maintenanceActions: Record<MaintenanceStatus, string> = {
+  open: 'Reopen',
+  in_progress: 'Start work',
+  on_hold: 'Put on hold',
+  completed: 'Mark complete',
+  cancelled: 'Cancel',
 };
 
 export function options<T extends string>(labels: Record<T, string>): { value: T; label: string }[] {

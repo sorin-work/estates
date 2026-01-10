@@ -174,3 +174,33 @@ export interface PaymentList {
   total: number;
   page_total_cents: Cents;
 }
+
+export type MaintenanceStatus = 'open' | 'in_progress' | 'on_hold' | 'completed' | 'cancelled';
+export type MaintenancePriority = 'low' | 'normal' | 'high' | 'urgent';
+
+export interface MaintenanceRequest {
+  id: string;
+  property_id: string;
+  property_name: string;
+  unit_id: string | null;
+  unit_label: string | null;
+  title: string;
+  description: string;
+  priority: MaintenancePriority;
+  status: MaintenanceStatus;
+  vendor: string;
+  reported_on: ISODate;
+  completed_on: ISODate | null;
+  cost_cents: Cents;
+  next_statuses: MaintenanceStatus[];
+}
+
+export interface MaintenanceInput {
+  property_id: string;
+  unit_id: string | null;
+  title: string;
+  description: string;
+  priority: MaintenancePriority;
+  vendor: string;
+  reported_on: ISODate;
+}

@@ -4,6 +4,7 @@ import Layout from './components/Layout';
 import LeaseDetailPage from './pages/LeaseDetailPage';
 import LeasesPage from './pages/LeasesPage';
 import LoginPage from './pages/LoginPage';
+import MaintenancePage from './pages/MaintenancePage';
 import NotFoundPage from './pages/NotFoundPage';
 import PropertiesPage from './pages/PropertiesPage';
 import PropertyDetailPage from './pages/PropertyDetailPage';
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="leases" element={<LeasesPage />} />
           <Route path="leases/:id" element={<LeaseDetailPage />} />
           <Route path="rent" element={<RentPage />} />
+          <Route path="maintenance" element={<MaintenancePage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>

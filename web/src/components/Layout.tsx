@@ -7,6 +7,7 @@ const nav = [
   { to: '/tenants', label: 'Tenants' },
   { to: '/leases', label: 'Leases' },
   { to: '/rent', label: 'Rent' },
+  { to: '/maintenance', label: 'Maintenance' },
 ];
 
 export default function Layout() {

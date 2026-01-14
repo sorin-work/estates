@@ -21,6 +21,7 @@ type MaintenanceRequest struct {
 	Vendor       string       `db:"vendor" json:"vendor"`
 	ReportedOn   domain.Date  `db:"reported_on" json:"reported_on"`
 	CompletedOn  *domain.Date `db:"completed_on" json:"completed_on"`
+	CostCents    int64        `db:"cost_cents" json:"cost_cents"`
 	CreatedAt    time.Time    `db:"created_at" json:"created_at"`
 	UpdatedAt    time.Time    `db:"updated_at" json:"updated_at"`
 }
@@ -45,7 +46,8 @@ type MaintenanceFilter struct {
 const maintenanceSelect = `
 	SELECT m.id, m.property_id, p.name AS property_name, m.unit_id, u.label AS unit_label,
 	       m.title, m.description, m.priority, m.status, m.vendor, m.reported_on, m.completed_on,
-	       m.created_at, m.updated_at
+	       m.created_at, m.updated_at,
+	       COALESCE((SELECT sum(e.amount_cents) FROM expenses e WHERE e.maintenance_request_id = m.id), 0)::bigint AS cost_cents
 	  FROM maintenance_requests m
 	  JOIN properties p ON p.id = m.property_id AND p.owner_id = $1
 	  LEFT JOIN units u ON u.id = m.unit_id`

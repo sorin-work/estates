@@ -6,6 +6,11 @@ var PropertyKinds = []string{"single_family", "multi_family", "condo", "townhous
 // Payment methods.
 var PaymentMethods = []string{"bank_transfer", "check", "cash", "card", "other"}
 
+// Expense categories.
+var ExpenseCategories = []string{
+	"repairs", "maintenance", "utilities", "insurance", "taxes", "mortgage", "management", "hoa", "legal", "other",
+}
+
 // OneOf reports whether v is in options.
 func OneOf(v string, options []string) bool {
 	for _, o := range options {

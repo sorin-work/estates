@@ -1,6 +1,7 @@
 import type {
   ChargeKind,
   ChargeStatus,
+  ExpenseCategory,
   LeaseStatus,
   MaintenancePriority,
   MaintenanceStatus,
@@ -61,6 +62,19 @@ export const maintenancePriorities: Record<MaintenancePriority, string> = {
   normal: 'Normal',
   high: 'High',
   urgent: 'Urgent',
+};
+
+export const expenseCategories: Record<ExpenseCategory, string> = {
+  repairs: 'Repairs',
+  maintenance: 'Maintenance',
+  utilities: 'Utilities',
+  insurance: 'Insurance',
+  taxes: 'Property tax',
+  mortgage: 'Mortgage',
+  management: 'Management',
+  hoa: 'HOA',
+  legal: 'Legal',
+  other: 'Other',
 };
 
 /** Verb for the button that moves a request to a status. */

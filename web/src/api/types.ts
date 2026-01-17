@@ -204,3 +204,44 @@ export interface MaintenanceInput {
   vendor: string;
   reported_on: ISODate;
 }
+
+export type ExpenseCategory =
+  | 'repairs'
+  | 'maintenance'
+  | 'utilities'
+  | 'insurance'
+  | 'taxes'
+  | 'mortgage'
+  | 'management'
+  | 'hoa'
+  | 'legal'
+  | 'other';
+
+export interface Expense {
+  id: string;
+  property_id: string;
+  property_name: string;
+  maintenance_request_id: string | null;
+  maintenance_title: string | null;
+  category: ExpenseCategory;
+  amount_cents: Cents;
+  spent_on: ISODate;
+  vendor: string;
+  description: string;
+}
+
+export interface ExpenseInput {
+  property_id: string;
+  maintenance_request_id: string | null;
+  category: ExpenseCategory;
+  amount_cents: Cents;
+  spent_on: ISODate;
+  vendor: string;
+  description: string;
+}
+
+export interface ExpenseList {
+  expenses: Expense[];
+  total_cents: Cents;
+  by_category: { category: ExpenseCategory; amount_cents: Cents }[];
+}

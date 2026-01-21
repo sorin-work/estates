@@ -27,6 +27,7 @@ type Store interface {
 	paymentStore
 	maintenanceStore
 	expenseStore
+	dashboardStore
 }
 
 // Billing generates charges and works out lease balances.
@@ -103,6 +104,7 @@ func (s *Server) Handler() http.Handler {
 			r.Route("/rent", s.rentRoutes)
 			r.Route("/maintenance", s.maintenanceRoutes)
 			r.Route("/expenses", s.expenseRoutes)
+			r.Get("/dashboard", s.handle(s.dashboard))
 		})
 	})
 	return r

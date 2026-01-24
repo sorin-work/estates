@@ -1,6 +1,7 @@
-import { Navigate, Route, Routes } from 'react-router';
+import { Route, Routes } from 'react-router';
 import { GuestOnly, RequireAuth } from './auth/guards';
 import Layout from './components/Layout';
+import DashboardPage from './pages/DashboardPage';
 import ExpensesPage from './pages/ExpensesPage';
 import LeaseDetailPage from './pages/LeaseDetailPage';
 import LeasesPage from './pages/LeasesPage';
@@ -23,7 +24,7 @@ export default function App() {
       </Route>
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>
-          <Route index element={<Navigate to="/properties" replace />} />
+          <Route index element={<DashboardPage />} />
           <Route path="properties" element={<PropertiesPage />} />
           <Route path="properties/:id" element={<PropertyDetailPage />} />
           <Route path="tenants" element={<TenantsPage />} />

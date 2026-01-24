@@ -245,3 +245,25 @@ export interface ExpenseList {
   total_cents: Cents;
   by_category: { category: ExpenseCategory; amount_cents: Cents }[];
 }
+
+export interface MonthTotal {
+  month: string;
+  charged_cents: Cents;
+  collected_cents: Cents;
+  expenses_cents: Cents;
+}
+
+export interface Dashboard {
+  as_of: ISODate;
+  occupancy: { units: number; occupied: number; vacant: number; rate: number };
+  this_month: MonthTotal;
+  outstanding: { balance_cents: Cents; overdue_cents: Cents; overdue_leases: number };
+  overdue: Balance[];
+  expiring_leases: Lease[];
+  maintenance: {
+    open: number;
+    by_priority: Record<MaintenancePriority, number>;
+    recent: MaintenanceRequest[];
+  };
+  monthly: MonthTotal[];
+}

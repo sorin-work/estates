@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router';
 import { getDashboard } from '../api/dashboard';
+import IncomeChart from '../components/charts/IncomeChart';
 import PageHeader from '../components/PageHeader';
 import StatCard from '../components/StatCard';
 import { EmptyState, ErrorState, Loading } from '../components/States';
@@ -57,6 +58,13 @@ export default function DashboardPage() {
           detail={`${formatMoney(month.expenses_cents)} in expenses`}
         />
       </div>
+
+      <section className="card">
+        <div className="card-header">
+          <h2>Last 12 months</h2>
+        </div>
+        <IncomeChart months={data.monthly} />
+      </section>
 
       <div className="grid-2">
         <section className="card">

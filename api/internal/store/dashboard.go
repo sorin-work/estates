@@ -19,7 +19,7 @@ func (s *Store) Occupancy(ctx context.Context, ownerID string, asOf domain.Date)
 		       count(*) FILTER (WHERE EXISTS (
 		           SELECT 1 FROM leases l
 		            WHERE l.unit_id = u.id AND l.start_date <= $2
-		              AND LEAST(l.end_date, COALESCE(l.terminated_on, l.end_date)) > $2))::int
+		              AND LEAST(l.end_date, COALESCE(l.terminated_on, l.end_date)) >= $2))::int
 		  FROM units u
 		  JOIN properties p ON p.id = u.property_id AND p.owner_id = $1`, ownerID, asOf,
 	).Scan(&o.Units, &o.Occupied)

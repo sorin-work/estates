@@ -1,5 +1,6 @@
-// Package billing turns lease terms into rent charges and works out lease
-// balances for the rent views.
+// Package billing turns lease terms into charges: monthly rent, and late fees
+// for rent that is not paid by the end of the grace period. It also builds
+// lease ledgers for the rent and dashboard views.
 package billing
 
 import (
@@ -17,7 +18,10 @@ import (
 type Store interface {
 	BillableLeases(ctx context.Context, asOf domain.Date) ([]store.Lease, error)
 	ListLeases(ctx context.Context, ownerID string, f store.LeaseFilter) ([]store.Lease, error)
+	LeaseOwner(ctx context.Context, leaseID string) (string, error)
 	InsertRent(ctx context.Context, leaseID string, rent []domain.ScheduledRent) (int, error)
+	InsertLateFee(ctx context.Context, leaseID, rentChargeID string, amount int64, due domain.Date) (bool, error)
+	LateFeeParents(ctx context.Context, leaseID string) (map[string]bool, error)
 	LedgerEntries(ctx context.Context, ownerID, leaseID string) (map[string]*store.LedgerEntries, error)
 }
 
@@ -48,7 +52,8 @@ func (s *Service) GenerateRent(ctx context.Context, l store.Lease, asOf domain.D
 	return added, nil
 }
 
-// BillLease generates any missing rent charges for the lease up to asOf.
+// BillLease generates any missing rent charges for the lease up to asOf and
+// adds late fees for overdue rent.
 func (s *Service) BillLease(ctx context.Context, l store.Lease, asOf domain.Date) (Result, error) {
 	res := Result{Leases: 1}
 	added, err := s.GenerateRent(ctx, l, asOf)
@@ -57,6 +62,36 @@ func (s *Service) BillLease(ctx context.Context, l store.Lease, asOf domain.Date
 	}
 	res.Rent = added
 
+	if l.LateFeeCents <= 0 {
+		return res, nil
+	}
+	owner, err := s.store.LeaseOwner(ctx, l.ID)
+	if err != nil {
+		return res, err
+	}
+	entries, err := s.store.LedgerEntries(ctx, owner, l.ID)
+	if err != nil {
+		return res, err
+	}
+	e := entries[l.ID]
+	if e == nil {
+		return res, nil
+	}
+	charged, err := s.store.LateFeeParents(ctx, l.ID)
+	if err != nil {
+		return res, err
+	}
+	ledger := domain.BuildLedger(e.Charges, e.Payments, l.GraceDays, asOf)
+	for _, c := range domain.LateFeeTargets(ledger, charged) {
+		feeDue := c.DueDate.AddDays(l.GraceDays + 1)
+		ok, err := s.store.InsertLateFee(ctx, l.ID, c.ID, l.LateFeeCents, feeDue)
+		if err != nil {
+			return res, fmt.Errorf("insert late fee for lease %s: %w", l.ID, err)
+		}
+		if ok {
+			res.LateFees++
+		}
+	}
 	return res, nil
 }
 

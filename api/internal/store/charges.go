@@ -88,3 +88,39 @@ func (s *Store) InsertRent(ctx context.Context, leaseID string, rent []domain.Sc
 	}
 	return added, nil
 }
+
+// InsertLateFee adds a late fee for an overdue rent charge unless it already
+// has one. It reports whether a fee was added.
+func (s *Store) InsertLateFee(ctx context.Context, leaseID, rentChargeID string, amount int64, due domain.Date) (bool, error) {
+	tag, err := s.pool.Exec(ctx, `
+		INSERT INTO charges (lease_id, kind, description, amount_cents, due_date, parent_charge_id)
+		SELECT $1, 'late_fee', 'Late fee for rent due ' || to_char(c.due_date, 'YYYY-MM-DD'), $3, $4, c.id
+		  FROM charges c WHERE c.id = $2
+		ON CONFLICT (parent_charge_id) WHERE kind = 'late_fee' DO NOTHING`,
+		leaseID, rentChargeID, amount, due)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
+// LateFeeParents returns the IDs of rent charges on a lease that already
+// have a late fee.
+func (s *Store) LateFeeParents(ctx context.Context, leaseID string) (map[string]bool, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT parent_charge_id::text FROM charges
+		 WHERE lease_id = $1 AND kind = 'late_fee' AND parent_charge_id IS NOT NULL`, leaseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
+}

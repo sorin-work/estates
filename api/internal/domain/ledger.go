@@ -130,3 +130,16 @@ func BuildLedger(charges []LedgerCharge, payments []LedgerPayment, graceDays int
 	}
 	return l
 }
+
+// LateFeeTargets returns the rent charges that should get a late fee on asOf:
+// rent that is overdue and not already in alreadyCharged (a set of rent
+// charge IDs that have a late fee).
+func LateFeeTargets(l Ledger, alreadyCharged map[string]bool) []ChargeBalance {
+	var out []ChargeBalance
+	for _, c := range l.Charges {
+		if c.Kind == ChargeRent && c.Status == StatusOverdue && !alreadyCharged[c.ID] {
+			out = append(out, c)
+		}
+	}
+	return out
+}

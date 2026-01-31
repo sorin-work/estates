@@ -103,3 +103,17 @@ func TestLedgerPaymentBeforeAnyCharge(t *testing.T) {
 		t.Errorf("unexpected %+v", l)
 	}
 }
+
+func TestLateFeeTargets(t *testing.T) {
+	charges := []LedgerCharge{
+		rent("jan", "2026-01-01", 1000),
+		rent("feb", "2026-02-01", 1000),
+		{ID: "fee-jan", Kind: ChargeLateFee, DueDate: MustParseDate("2026-01-07"), AmountCents: 50},
+		rent("mar", "2026-03-01", 1000),
+	}
+	l := BuildLedger(charges, nil, 5, MustParseDate("2026-03-03"))
+	targets := LateFeeTargets(l, map[string]bool{"jan": true})
+	if len(targets) != 1 || targets[0].ID != "feb" {
+		t.Fatalf("got %+v", targets)
+	}
+}

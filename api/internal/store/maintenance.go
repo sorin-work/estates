@@ -2,8 +2,11 @@ package store
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/sorin-work/estates/api/internal/domain"
 )
@@ -114,7 +117,7 @@ func (s *Store) CreateMaintenance(ctx context.Context, ownerID string, in Mainte
 		ownerID, in.PropertyID, emptyToNil(in.UnitID), in.Title, in.Description, in.Priority, in.Vendor, in.ReportedOn,
 	).Scan(&id)
 	if err != nil {
-		if notFound(err) == ErrNotFound {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return "", conflict("property not found")
 		}
 		return "", err

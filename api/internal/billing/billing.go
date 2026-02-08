@@ -82,7 +82,7 @@ func (s *Service) BillLease(ctx context.Context, l store.Lease, asOf domain.Date
 		return res, err
 	}
 	ledger := domain.BuildLedger(e.Charges, e.Payments, l.GraceDays, asOf)
-	for _, c := range domain.LateFeeTargets(ledger, charged) {
+	for _, c := range domain.LateFeeTargets(ledger, charged, l.GraceDays, asOf) {
 		feeDue := c.DueDate.AddDays(l.GraceDays + 1)
 		ok, err := s.store.InsertLateFee(ctx, l.ID, c.ID, l.LateFeeCents, feeDue)
 		if err != nil {

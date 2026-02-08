@@ -131,15 +131,26 @@ func BuildLedger(charges []LedgerCharge, payments []LedgerPayment, graceDays int
 	return l
 }
 
+// LateFeeWindowDays limits late fees to rent that became overdue recently.
+// Without it, entering an existing lease with a few months of history would
+// add a late fee for every month before its payments have been recorded.
+const LateFeeWindowDays = 30
+
 // LateFeeTargets returns the rent charges that should get a late fee on asOf:
-// rent that is overdue and not already in alreadyCharged (a set of rent
-// charge IDs that have a late fee).
-func LateFeeTargets(l Ledger, alreadyCharged map[string]bool) []ChargeBalance {
+// rent that is overdue, became overdue within the last LateFeeWindowDays,
+// and is not already in alreadyCharged (rent charge IDs that have a fee).
+func LateFeeTargets(l Ledger, alreadyCharged map[string]bool, graceDays int, asOf Date) []ChargeBalance {
+	cutoff := asOf.AddDays(-LateFeeWindowDays)
 	var out []ChargeBalance
 	for _, c := range l.Charges {
-		if c.Kind == ChargeRent && c.Status == StatusOverdue && !alreadyCharged[c.ID] {
-			out = append(out, c)
+		if c.Kind != ChargeRent || c.Status != StatusOverdue || alreadyCharged[c.ID] {
+			continue
 		}
+		overdueFrom := c.DueDate.AddDays(graceDays + 1)
+		if overdueFrom.Before(cutoff) {
+			continue
+		}
+		out = append(out, c)
 	}
 	return out
 }

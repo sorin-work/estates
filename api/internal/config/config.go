@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -16,6 +17,7 @@ type Config struct {
 	TokenTTL    time.Duration
 	LogLevel    slog.Level
 	LogFormat   string
+	SeedDemo    bool
 	// BillingInterval is how often rent charges and late fees are generated.
 	BillingInterval time.Duration
 }
@@ -54,6 +56,13 @@ func Load() (Config, error) {
 			errs = append(errs, fmt.Errorf("BILLING_INTERVAL: invalid duration %q", v))
 		}
 		cfg.BillingInterval = d
+	}
+	if v := os.Getenv("SEED_DEMO"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("SEED_DEMO: %w", err))
+		}
+		cfg.SeedDemo = b
 	}
 	return cfg, errors.Join(errs...)
 }

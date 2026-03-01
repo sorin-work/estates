@@ -17,6 +17,7 @@ import (
 	"github.com/sorin-work/estates/api/internal/config"
 	"github.com/sorin-work/estates/api/internal/database"
 	"github.com/sorin-work/estates/api/internal/httpapi"
+	"github.com/sorin-work/estates/api/internal/seed"
 	"github.com/sorin-work/estates/api/internal/store"
 )
 
@@ -52,6 +53,12 @@ func run() error {
 
 	st := store.New(pool)
 	bill := billing.New(st, log)
+
+	if cfg.SeedDemo {
+		if err := seed.Demo(ctx, st, bill, log); err != nil {
+			return fmt.Errorf("seed demo data: %w", err)
+		}
+	}
 
 	tokens, err := auth.NewTokens(cfg.JWTSecret, cfg.TokenTTL)
 	if err != nil {

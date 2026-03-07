@@ -32,7 +32,7 @@ expenses, with a dashboard that shows what needs attention.
 
 | Part     | Tech                                                                     |
 | -------- | ------------------------------------------------------------------------ |
-| API      | Go 1.25, chi, PostgreSQL via pgx, goose migrations (embedded), JWT, slog |
+| API      | Go 1.26, chi, PostgreSQL via pgx, goose migrations (embedded), JWT, slog |
 | Web      | React 19, TypeScript, Vite, React Router, TanStack Query                 |
 | Tests    | Go `testing` + httptest, Vitest + Testing Library                        |
 | Tooling  | golangci-lint, ESLint, Prettier, GitHub Actions                          |
@@ -67,7 +67,7 @@ applies migrations when it starts. Data lives in the `db-data` volume;
 
 ## Running locally
 
-You need Go 1.25+, Node 22+ and a Postgres database. The easiest is to run
+You need Go 1.26+, Node 22+ and a Postgres database. The easiest is to run
 only the database in Docker:
 
 ```bash

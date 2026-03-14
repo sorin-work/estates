@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -17,6 +18,9 @@ type Config struct {
 	TokenTTL    time.Duration
 	LogLevel    slog.Level
 	LogFormat   string
+	// CORSOrigins lists browser origins allowed to call the API directly.
+	// Not needed when the web app proxies /api.
+	CORSOrigins []string
 	SeedDemo    bool
 	// BillingInterval is how often rent charges and late fees are generated.
 	BillingInterval time.Duration
@@ -29,6 +33,7 @@ func Load() (Config, error) {
 		DatabaseURL:     os.Getenv("DATABASE_URL"),
 		JWTSecret:       os.Getenv("JWT_SECRET"),
 		LogFormat:       getenv("LOG_FORMAT", "json"),
+		CORSOrigins:     splitList(os.Getenv("CORS_ORIGINS")),
 		TokenTTL:        7 * 24 * time.Hour,
 		BillingInterval: time.Hour,
 	}
@@ -72,4 +77,14 @@ func getenv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func splitList(s string) []string {
+	var out []string
+	for _, part := range strings.Split(s, ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }

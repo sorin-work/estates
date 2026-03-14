@@ -289,3 +289,24 @@ func TestPanicsBecome500(t *testing.T) {
 		t.Errorf("body %s", res.Body)
 	}
 }
+
+func TestCORS(t *testing.T) {
+	srv := New(Options{Store: newFakeStore(), Tokens: testTokens(t), Logger: quietLogger(), CORSOrigins: []string{"http://localhost:5173"}})
+	h := srv.Handler()
+
+	req := httptest.NewRequest("OPTIONS", "/api/auth/login", nil)
+	req.Header.Set("Origin", "http://localhost:5173")
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNoContent || rec.Header().Get("Access-Control-Allow-Origin") != "http://localhost:5173" {
+		t.Errorf("allowed origin: %d %v", rec.Code, rec.Header())
+	}
+
+	req = httptest.NewRequest("GET", "/healthz", nil)
+	req.Header.Set("Origin", "https://evil.example.com")
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Header().Get("Access-Control-Allow-Origin") != "" {
+		t.Error("unknown origin was allowed")
+	}
+}

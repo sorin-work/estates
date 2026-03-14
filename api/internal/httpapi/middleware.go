@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"runtime/debug"
+	"slices"
 	"strings"
 	"time"
 
@@ -41,6 +42,26 @@ func (s *Server) recoverPanics(next http.Handler) http.Handler {
 				writeError(w, http.StatusInternalServerError, "internal", "something went wrong")
 			}
 		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+// cors allows the configured origins to call the API from the browser. In
+// the Docker setup nginx proxies /api so no origins need to be allowed.
+func (s *Server) cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := r.Header.Get("Origin")
+		if origin != "" && slices.Contains(s.corsOrigins, origin) {
+			h := w.Header()
+			h.Set("Access-Control-Allow-Origin", origin)
+			h.Set("Vary", "Origin")
+			h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+			h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+		}
 		next.ServeHTTP(w, r)
 	})
 }

@@ -38,29 +38,32 @@ type Billing interface {
 }
 
 type Server struct {
-	store   Store
-	billing Billing
-	tokens  *auth.Tokens
-	log     *slog.Logger
+	store       Store
+	billing     Billing
+	tokens      *auth.Tokens
+	log         *slog.Logger
+	corsOrigins []string
 	// today returns the current date; tests replace it.
 	today func() domain.Date
 }
 
 type Options struct {
-	Store   Store
-	Billing Billing
-	Tokens  *auth.Tokens
-	Logger  *slog.Logger
-	Today   func() domain.Date
+	Store       Store
+	Billing     Billing
+	Tokens      *auth.Tokens
+	Logger      *slog.Logger
+	CORSOrigins []string
+	Today       func() domain.Date
 }
 
 func New(o Options) *Server {
 	s := &Server{
-		store:   o.Store,
-		billing: o.Billing,
-		tokens:  o.Tokens,
-		log:     o.Logger,
-		today:   o.Today,
+		store:       o.Store,
+		billing:     o.Billing,
+		tokens:      o.Tokens,
+		log:         o.Logger,
+		corsOrigins: o.CORSOrigins,
+		today:       o.Today,
 	}
 	if s.log == nil {
 		s.log = slog.Default()
@@ -77,6 +80,7 @@ func (s *Server) Handler() http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(s.logRequests)
 	r.Use(s.recoverPanics)
+	r.Use(s.cors)
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "no such endpoint")

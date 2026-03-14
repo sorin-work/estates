@@ -65,10 +65,11 @@ func run() error {
 		return err
 	}
 	api := httpapi.New(httpapi.Options{
-		Store:   st,
-		Billing: bill,
-		Tokens:  tokens,
-		Logger:  log,
+		Store:       st,
+		Billing:     bill,
+		Tokens:      tokens,
+		Logger:      log,
+		CORSOrigins: cfg.CORSOrigins,
 	})
 
 	go bill.Run(ctx, cfg.BillingInterval)

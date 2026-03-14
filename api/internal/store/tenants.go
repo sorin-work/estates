@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"strings"
 	"time"
 )
 
@@ -37,7 +38,7 @@ func (s *Store) ListTenants(ctx context.Context, ownerID, search string) ([]Tena
 	args := []any{ownerID}
 	if search != "" {
 		q += ` AND (t.first_name || ' ' || t.last_name || ' ' || t.email || ' ' || t.phone) ILIKE '%' || $2 || '%'`
-		args = append(args, search)
+		args = append(args, escapeLike(search))
 	}
 	rows, err := s.pool.Query(ctx, q+` ORDER BY lower(t.last_name), lower(t.first_name)`, args...)
 	return collectAll[Tenant](rows, err)
@@ -75,3 +76,9 @@ func (s *Store) DeleteTenant(ctx context.Context, ownerID, id string) error {
 	}
 	return err
 }
+
+var likeEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+// escapeLike escapes the LIKE wildcards in user input, so searching for
+// "50%" or "a_b" matches those characters literally.
+func escapeLike(s string) string { return likeEscaper.Replace(s) }

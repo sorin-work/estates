@@ -326,3 +326,24 @@ func TestExpiringLeases(t *testing.T) {
 		t.Errorf("lease ending in 90 days listed: %+v", got)
 	}
 }
+
+func TestTenantSearchTreatsWildcardsLiterally(t *testing.T) {
+	f := setup(t)
+	for _, in := range []store.TenantInput{
+		{FirstName: "Ann", LastName: "Lee", Email: "ann_lee@example.com"},
+		{FirstName: "Annie", LastName: "Leeds", Email: "annxlee@example.com"},
+	} {
+		if _, err := f.st.CreateTenant(ctx, f.owner, in); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for q, want := range map[string]int{"ann_lee": 1, "%": 0, "ann": 2, "lovelace": 1} {
+		got, err := f.st.ListTenants(ctx, f.owner, q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != want {
+			t.Errorf("search %q: %d tenants, want %d", q, len(got), want)
+		}
+	}
+}

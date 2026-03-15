@@ -190,7 +190,8 @@ func (s *Store) UpdateLease(ctx context.Context, ownerID, id string, in LeaseInp
 }
 
 // TerminateLease ends a lease early. Rent due after the termination date is
-// removed.
+// removed and the rent for the final period is prorated to the days the
+// tenant still had the unit.
 func (s *Store) TerminateLease(ctx context.Context, ownerID, id string, on domain.Date) error {
 	return s.inTx(ctx, func(tx pgx.Tx) error {
 		l, err := s.getLeaseTx(ctx, tx, ownerID, id)
@@ -203,8 +204,8 @@ func (s *Store) TerminateLease(ctx context.Context, ownerID, id string, on domai
 		if _, err := tx.Exec(ctx, `UPDATE leases SET terminated_on = $2, updated_at = now() WHERE id = $1`, id, on); err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `DELETE FROM charges WHERE lease_id = $1 AND kind = 'rent' AND due_date > $2`, id, on)
-		return err
+		l.TerminatedOn = &on
+		return syncRent(ctx, tx, id, l.Terms())
 	})
 }
 

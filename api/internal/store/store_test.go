@@ -420,3 +420,27 @@ func TestEditingTheRentUpdatesCharges(t *testing.T) {
 		}
 	}
 }
+
+func TestTerminationProratesTheFinalMonth(t *testing.T) {
+	f := setup(t)
+	id := f.lease(t, "2026-01-01", "2026-12-31")
+	l, _ := f.st.GetLease(ctx, f.owner, id)
+	if _, err := f.st.InsertRent(ctx, id, domain.RentSchedule(l.Terms(), d("2026-03-10"))); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.st.TerminateLease(ctx, f.owner, id, d("2026-03-15")); err != nil {
+		t.Fatal(err)
+	}
+	charges, _ := f.st.ListCharges(ctx, f.owner, id)
+	if len(charges) != 3 {
+		t.Fatalf("charges %+v", charges)
+	}
+	march := charges[2]
+	// 15 of March's 31 days of 1,200.00.
+	if march.AmountCents != 58065 || march.PeriodEnd.String() != "2026-03-15" {
+		t.Errorf("march %d until %s", march.AmountCents, march.PeriodEnd)
+	}
+	if charges[1].AmountCents != 120000 {
+		t.Errorf("february should be untouched, got %d", charges[1].AmountCents)
+	}
+}

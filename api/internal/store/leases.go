@@ -160,13 +160,14 @@ func (s *Store) CreateLease(ctx context.Context, ownerID string, in LeaseInput) 
 
 func (s *Store) UpdateLease(ctx context.Context, ownerID, id string, in LeaseInput) error {
 	return s.inTx(ctx, func(tx pgx.Tx) error {
-		if _, err := s.getLeaseTx(ctx, tx, ownerID, id); err != nil {
+		old, err := s.getLeaseTx(ctx, tx, ownerID, id)
+		if err != nil {
 			return err
 		}
 		if err := checkLeaseRefs(ctx, tx, ownerID, id, in); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `
+		_, err = tx.Exec(ctx, `
 			UPDATE leases
 			   SET unit_id = $2, tenant_id = $3, start_date = $4, end_date = $5, rent_cents = $6,
 			       deposit_cents = $7, due_day = $8, grace_days = $9, late_fee_cents = $10,
@@ -178,13 +179,13 @@ func (s *Store) UpdateLease(ctx context.Context, ownerID, id string, in LeaseInp
 		if err != nil {
 			return err
 		}
-		// Rent outside the new dates no longer applies. Missing periods are
+		// Charges already generated follow the new terms. Missing periods are
 		// added again by the billing service.
-		_, err = tx.Exec(ctx, `
-			DELETE FROM charges
-			 WHERE lease_id = $1 AND kind = 'rent' AND (due_date < $2 OR due_date > $3)`,
-			id, in.StartDate, in.EndDate)
-		return err
+		updated := Lease{
+			StartDate: in.StartDate, EndDate: in.EndDate, RentCents: in.RentCents,
+			DueDay: in.DueDay, TerminatedOn: old.TerminatedOn,
+		}
+		return syncRent(ctx, tx, id, updated.Terms())
 	})
 }
 
@@ -240,6 +241,37 @@ func (s *Store) LeaseOwner(ctx context.Context, leaseID string) (string, error) 
 		  JOIN properties p ON p.id = u.property_id
 		 WHERE l.id = $1`, leaseID).Scan(&owner)
 	return owner, notFound(err)
+}
+
+// syncRent brings the rent charges already generated for a lease in line
+// with its terms: rent the terms would no longer charge (outside the dates,
+// or on an old due day) is removed, and charges whose amount or period
+// changed are updated in place so late fees attached to them survive.
+func syncRent(ctx context.Context, tx pgx.Tx, leaseID string, terms domain.RentTerms) error {
+	schedule := domain.RentSchedule(terms, terms.End)
+	due := make([]string, 0, len(schedule))
+	for _, r := range schedule {
+		due = append(due, r.DueDate.String())
+	}
+	_, err := tx.Exec(ctx, `
+		DELETE FROM charges
+		 WHERE lease_id = $1 AND kind = 'rent' AND NOT (due_date::text = ANY($2::text[]))`,
+		leaseID, due)
+	if err != nil {
+		return err
+	}
+	for _, r := range schedule {
+		_, err := tx.Exec(ctx, `
+			UPDATE charges
+			   SET amount_cents = $3, period_start = $4, period_end = $5, description = $6
+			 WHERE lease_id = $1 AND kind = 'rent' AND due_date = $2
+			   AND (amount_cents <> $3 OR period_start IS DISTINCT FROM $4 OR period_end IS DISTINCT FROM $5)`,
+			leaseID, r.DueDate, r.AmountCents, r.PeriodStart, r.PeriodEnd, rentDescription(r))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func nullIfEmpty(s string) any {

@@ -72,10 +72,7 @@ func (s *Store) DeleteCharge(ctx context.Context, ownerID, id string) error {
 func (s *Store) InsertRent(ctx context.Context, leaseID string, rent []domain.ScheduledRent) (int, error) {
 	added := 0
 	for _, r := range rent {
-		desc := "Rent " + r.PeriodStart.String() + " to " + r.PeriodEnd.String()
-		if r.Prorated {
-			desc += " (prorated)"
-		}
+		desc := rentDescription(r)
 		tag, err := s.pool.Exec(ctx, `
 			INSERT INTO charges (lease_id, kind, description, amount_cents, due_date, period_start, period_end)
 			VALUES ($1, 'rent', $2, $3, $4, $5, $6)
@@ -87,6 +84,14 @@ func (s *Store) InsertRent(ctx context.Context, leaseID string, rent []domain.Sc
 		added += int(tag.RowsAffected())
 	}
 	return added, nil
+}
+
+func rentDescription(r domain.ScheduledRent) string {
+	desc := "Rent " + r.PeriodStart.String() + " to " + r.PeriodEnd.String()
+	if r.Prorated {
+		desc += " (prorated)"
+	}
+	return desc
 }
 
 // InsertLateFee adds a late fee for an overdue rent charge unless it already

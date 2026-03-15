@@ -347,3 +347,76 @@ func TestTenantSearchTreatsWildcardsLiterally(t *testing.T) {
 		}
 	}
 }
+
+func TestChangingTheDueDayReplacesRent(t *testing.T) {
+	f := setup(t)
+	id := f.lease(t, "2026-01-01", "2026-12-31")
+	l, _ := f.st.GetLease(ctx, f.owner, id)
+	if _, err := f.st.InsertRent(ctx, id, domain.RentSchedule(l.Terms(), d("2026-03-10"))); err != nil {
+		t.Fatal(err)
+	}
+
+	err := f.st.UpdateLease(ctx, f.owner, id, store.LeaseInput{
+		UnitID: f.unit, TenantID: f.tenant, StartDate: l.StartDate, EndDate: l.EndDate,
+		RentCents: l.RentCents, DueDay: 15, GraceDays: 5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	l, _ = f.st.GetLease(ctx, f.owner, id)
+	if _, err := f.st.InsertRent(ctx, id, domain.RentSchedule(l.Terms(), d("2026-03-10"))); err != nil {
+		t.Fatal(err)
+	}
+
+	// Rent is now due on the 15th: January 1-14 prorated, then January 15
+	// and February 15. The old charges on the 1st are gone.
+	charges, _ := f.st.ListCharges(ctx, f.owner, id)
+	var got []string
+	for _, c := range charges {
+		got = append(got, c.DueDate.String())
+	}
+	want := []string{"2026-01-01", "2026-01-15", "2026-02-15"}
+	if len(got) != len(want) {
+		t.Fatalf("rent due %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("rent due %v, want %v", got, want)
+		}
+	}
+	if charges[0].AmountCents == l.RentCents {
+		t.Errorf("first period should be prorated, got %d", charges[0].AmountCents)
+	}
+}
+
+func TestEditingTheRentUpdatesCharges(t *testing.T) {
+	f := setup(t)
+	id := f.lease(t, "2026-01-01", "2026-12-31")
+	l, _ := f.st.GetLease(ctx, f.owner, id)
+	if _, err := f.st.InsertRent(ctx, id, domain.RentSchedule(l.Terms(), d("2026-02-10"))); err != nil {
+		t.Fatal(err)
+	}
+	charges, _ := f.st.ListCharges(ctx, f.owner, id)
+	if _, err := f.st.InsertLateFee(ctx, id, charges[0].ID, 5000, d("2026-01-07")); err != nil {
+		t.Fatal(err)
+	}
+
+	// The rent was typed wrong; fixing it fixes the charges and keeps the
+	// late fee.
+	err := f.st.UpdateLease(ctx, f.owner, id, store.LeaseInput{
+		UnitID: f.unit, TenantID: f.tenant, StartDate: l.StartDate, EndDate: l.EndDate,
+		RentCents: 102000, DueDay: 1, GraceDays: 5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	charges, _ = f.st.ListCharges(ctx, f.owner, id)
+	if len(charges) != 3 {
+		t.Fatalf("charges %+v", charges)
+	}
+	for _, c := range charges {
+		if c.Kind == domain.ChargeRent && c.AmountCents != 102000 {
+			t.Errorf("rent due %s is %d", c.DueDate, c.AmountCents)
+		}
+	}
+}

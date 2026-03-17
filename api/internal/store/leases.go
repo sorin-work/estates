@@ -201,6 +201,9 @@ func (s *Store) TerminateLease(ctx context.Context, ownerID, id string, on domai
 		if on.Before(l.StartDate) {
 			return conflict("termination date is before the lease starts")
 		}
+		if on.After(l.EndDate) {
+			return conflict("termination date is after the lease ends")
+		}
 		if _, err := tx.Exec(ctx, `UPDATE leases SET terminated_on = $2, updated_at = now() WHERE id = $1`, id, on); err != nil {
 			return err
 		}

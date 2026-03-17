@@ -133,6 +133,12 @@ func TestRentFlow(t *testing.T) {
 		t.Errorf("this month %+v (%d months)", dash.ThisMonth, len(dash.Monthly))
 	}
 
+	// A lease cannot be ended early after it has already ended.
+	res = c.mustStatus(http.StatusConflict, "POST", "/api/leases/"+lease.ID+"/terminate", map[string]string{"date": "2027-02-01"})
+	if res.errorCode(t) != "conflict" {
+		t.Errorf("terminate after end: %s", res.Body)
+	}
+
 	// Ending the lease early drops rent due after the termination date.
 	c.mustStatus(http.StatusOK, "POST", "/api/leases/"+lease.ID+"/terminate", map[string]string{"date": "2026-03-31"})
 	var leases []store.Lease

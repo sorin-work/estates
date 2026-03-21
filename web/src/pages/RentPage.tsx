@@ -122,6 +122,7 @@ export default function RentPage() {
             onChange={(e) => {
               if (!e.target.value) return;
               setMonth(e.target.value);
+              setPage(0);
             }}
           />
         </div>

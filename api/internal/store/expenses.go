@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/sorin-work/estates/api/internal/domain"
@@ -53,42 +52,38 @@ const expenseSelect = `
 	  JOIN properties p ON p.id = e.property_id AND p.owner_id = $1
 	  LEFT JOIN maintenance_requests m ON m.id = e.maintenance_request_id`
 
-func expenseWhere(f ExpenseFilter, args []any) (string, []any) {
-	where := []string{"true"}
-	add := func(cond string, v any) {
-		args = append(args, v)
-		where = append(where, strings.ReplaceAll(cond, "?", "$"+itoa(len(args))))
-	}
+func expenseFilter(ownerID string, f ExpenseFilter) *filter {
+	w := newFilter(ownerID)
 	if f.PropertyID != "" {
-		add("e.property_id = ?", f.PropertyID)
+		w.add("e.property_id = ?", f.PropertyID)
 	}
 	if f.Category != "" {
-		add("e.category = ?", f.Category)
+		w.add("e.category = ?", f.Category)
 	}
 	if !f.From.IsZero() {
-		add("e.spent_on >= ?", f.From)
+		w.add("e.spent_on >= ?", f.From)
 	}
 	if !f.To.IsZero() {
-		add("e.spent_on <= ?", f.To)
+		w.add("e.spent_on <= ?", f.To)
 	}
-	return ` WHERE ` + strings.Join(where, " AND "), args
+	return w
 }
 
 func (s *Store) ListExpenses(ctx context.Context, ownerID string, f ExpenseFilter) ([]Expense, error) {
-	cond, args := expenseWhere(f, []any{ownerID})
-	rows, err := s.pool.Query(ctx, expenseSelect+cond+` ORDER BY e.spent_on DESC, e.created_at DESC`, args...)
+	w := expenseFilter(ownerID, f)
+	rows, err := s.pool.Query(ctx, expenseSelect+w.where()+` ORDER BY e.spent_on DESC, e.created_at DESC`, w.args...)
 	return collectAll[Expense](rows, err)
 }
 
 // ExpenseTotals sums the filtered expenses by category, largest first.
 func (s *Store) ExpenseTotals(ctx context.Context, ownerID string, f ExpenseFilter) ([]CategoryTotal, error) {
-	cond, args := expenseWhere(f, []any{ownerID})
+	w := expenseFilter(ownerID, f)
 	rows, err := s.pool.Query(ctx, `
 		SELECT e.category, sum(e.amount_cents)::bigint AS amount_cents
 		  FROM expenses e
-		  JOIN properties p ON p.id = e.property_id AND p.owner_id = $1`+cond+`
+		  JOIN properties p ON p.id = e.property_id AND p.owner_id = $1`+w.where()+`
 		 GROUP BY e.category
-		 ORDER BY amount_cents DESC`, args...)
+		 ORDER BY amount_cents DESC`, w.args...)
 	return collectAll[CategoryTotal](rows, err)
 }
 

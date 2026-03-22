@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -72,23 +71,19 @@ const leaseSelect = `
 	  JOIN tenants t ON t.id = l.tenant_id`
 
 func (s *Store) ListLeases(ctx context.Context, ownerID string, f LeaseFilter) ([]Lease, error) {
-	where := []string{"p.owner_id = $1"}
-	args := []any{ownerID}
-	add := func(cond string, v any) {
-		args = append(args, v)
-		where = append(where, strings.ReplaceAll(cond, "?", "$"+itoa(len(args))))
-	}
+	w := newFilter(ownerID)
+	w.raw("p.owner_id = $1")
 	if f.PropertyID != "" {
-		add("p.id = ?", f.PropertyID)
+		w.add("p.id = ?", f.PropertyID)
 	}
 	if f.UnitID != "" {
-		add("l.unit_id = ?", f.UnitID)
+		w.add("l.unit_id = ?", f.UnitID)
 	}
 	if f.TenantID != "" {
-		add("l.tenant_id = ?", f.TenantID)
+		w.add("l.tenant_id = ?", f.TenantID)
 	}
-	q := leaseSelect + ` WHERE ` + strings.Join(where, " AND ") + ` ORDER BY l.start_date DESC, lower(p.name), u.label`
-	rows, err := s.pool.Query(ctx, q, args...)
+	q := leaseSelect + w.where() + ` ORDER BY l.start_date DESC, lower(p.name), u.label`
+	rows, err := s.pool.Query(ctx, q, w.args...)
 	return collectAll[Lease](rows, err)
 }
 

@@ -3,7 +3,6 @@ package store
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -59,28 +58,23 @@ const maintenanceSelect = `
 const priorityRank = `CASE m.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END`
 
 func (s *Store) ListMaintenance(ctx context.Context, ownerID string, f MaintenanceFilter) ([]MaintenanceRequest, error) {
-	where := []string{"true"}
-	args := []any{ownerID}
-	add := func(cond string, v any) {
-		args = append(args, v)
-		where = append(where, strings.ReplaceAll(cond, "?", "$"+itoa(len(args))))
-	}
+	w := newFilter(ownerID)
 	if f.PropertyID != "" {
-		add("m.property_id = ?", f.PropertyID)
+		w.add("m.property_id = ?", f.PropertyID)
 	}
 	switch f.Status {
 	case "":
 	case "active":
-		where = append(where, "m.status IN ('open', 'in_progress', 'on_hold')")
+		w.raw("m.status IN ('open', 'in_progress', 'on_hold')")
 	default:
-		add("m.status = ?", f.Status)
+		w.add("m.status = ?", f.Status)
 	}
 	if f.Priority != "" {
-		add("m.priority = ?", f.Priority)
+		w.add("m.priority = ?", f.Priority)
 	}
-	q := maintenanceSelect + ` WHERE ` + strings.Join(where, " AND ") +
+	q := maintenanceSelect + w.where() +
 		` ORDER BY (m.status IN ('completed', 'cancelled')), ` + priorityRank + `, m.reported_on DESC, m.created_at DESC`
-	rows, err := s.pool.Query(ctx, q, args...)
+	rows, err := s.pool.Query(ctx, q, w.args...)
 	return collectAll[MaintenanceRequest](rows, err)
 }
 

@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/sorin-work/estates/api/internal/domain"
@@ -51,28 +50,22 @@ const paymentSelect = `
 // ListPayments returns a page of payments, newest first, and the total
 // number matching the filter.
 func (s *Store) ListPayments(ctx context.Context, ownerID string, f PaymentFilter) ([]Payment, int, error) {
-	where := []string{"true"}
-	args := []any{ownerID}
-	add := func(cond string, v any) {
-		args = append(args, v)
-		where = append(where, strings.ReplaceAll(cond, "?", "$"+itoa(len(args))))
-	}
+	w := newFilter(ownerID)
 	if f.LeaseID != "" {
-		add("pm.lease_id = ?", f.LeaseID)
+		w.add("pm.lease_id = ?", f.LeaseID)
 	}
 	if f.PropertyID != "" {
-		add("p.id = ?", f.PropertyID)
+		w.add("p.id = ?", f.PropertyID)
 	}
 	if !f.From.IsZero() {
-		add("pm.paid_on >= ?", f.From)
+		w.add("pm.paid_on >= ?", f.From)
 	}
 	if !f.To.IsZero() {
-		add("pm.paid_on <= ?", f.To)
+		w.add("pm.paid_on <= ?", f.To)
 	}
-	cond := ` WHERE ` + strings.Join(where, " AND ")
 
 	var total int
-	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM (`+paymentSelect+cond+`) x`, args...).Scan(&total); err != nil {
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM (`+paymentSelect+w.where()+`) x`, w.args...).Scan(&total); err != nil {
 		return nil, 0, err
 	}
 
@@ -80,9 +73,8 @@ func (s *Store) ListPayments(ctx context.Context, ownerID string, f PaymentFilte
 	if limit <= 0 || limit > 500 {
 		limit = 50
 	}
-	args = append(args, limit, max(f.Offset, 0))
-	q := paymentSelect + cond + ` ORDER BY pm.paid_on DESC, pm.created_at DESC LIMIT $` + itoa(len(args)-1) + ` OFFSET $` + itoa(len(args))
-	rows, err := s.pool.Query(ctx, q, args...)
+	q := paymentSelect + w.where() + ` ORDER BY pm.paid_on DESC, pm.created_at DESC LIMIT ` + w.arg(limit) + ` OFFSET ` + w.arg(max(f.Offset, 0))
+	rows, err := s.pool.Query(ctx, q, w.args...)
 	payments, err := collectAll[Payment](rows, err)
 	return payments, total, err
 }

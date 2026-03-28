@@ -42,6 +42,15 @@ export default function LeaseForm({
   const [notes, setNotes] = useState(initial?.notes ?? '');
   const { submitting, error, errors, run } = useFormSubmit();
 
+  function chooseUnit(id: string) {
+    setUnitId(id);
+    // Suggest the unit's market rent for a new lease.
+    const unit = units.data?.find((u) => u.id === id);
+    if (!initial && unit && unit.market_rent_cents > 0 && rent === '') {
+      setRent(centsToInput(unit.market_rent_cents));
+    }
+  }
+
   function changeStart(value: string) {
     setStartDate(value);
     if (!initial && value) setEndDate(addDays(addMonths(value, 12), -1));
@@ -81,7 +90,7 @@ export default function LeaseForm({
       <div className="form-row">
         <Field label="Unit" error={errors.unit_id}>
           {(id) => (
-            <select id={id} value={unitId} onChange={(e) => setUnitId(e.target.value)}>
+            <select id={id} value={unitId} onChange={(e) => chooseUnit(e.target.value)}>
               <option value="">Choose a unit…</option>
               {units.data?.map((u) => (
                 <option key={u.id} value={u.id}>

@@ -19,11 +19,11 @@ export function formatMoneyCompact(cents: number): string {
 
 /**
  * Parses what someone types into an amount field into cents. Accepts "1200",
- * "1,200.50" and " 12.05 ". Returns null for anything that is
+ * "1,200.50", "$1,200.5" and " 12.05 ". Returns null for anything that is
  * not a valid non-negative amount with at most two decimals.
  */
 export function parseMoney(input: string): number | null {
-  const cleaned = input.trim().replace(/,/g, '');
+  const cleaned = input.trim().replace(/^\$/, '').replace(/,/g, '');
   if (!/^\d+(\.\d{0,2})?$/.test(cleaned)) return null;
   const [whole = '0', fraction = ''] = cleaned.split('.');
   return Number(whole) * 100 + Number(fraction.padEnd(2, '0'));

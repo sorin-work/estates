@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sorin-work/estates/api/internal/auth"
+	"github.com/sorin-work/estates/api/internal/domain"
 	"github.com/sorin-work/estates/api/internal/store"
 )
 
@@ -15,6 +16,7 @@ type userStore interface {
 	CreateUser(ctx context.Context, email, name, passwordHash string) (store.User, error)
 	UserByEmail(ctx context.Context, email string) (store.User, error)
 	UserByID(ctx context.Context, id string) (store.User, error)
+	UpdateUser(ctx context.Context, id string, in store.UserSettings) error
 }
 
 type authResponse struct {
@@ -106,4 +108,29 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) error {
 	}
 	writeJSON(w, http.StatusOK, u)
 	return nil
+}
+
+// updateMe changes the signed in user's name and display currency.
+func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) error {
+	var in store.UserSettings
+	if err := decode(w, r, &in); err != nil {
+		return err
+	}
+	trim(&in.Name, &in.Currency)
+	in.Currency = strings.ToUpper(in.Currency)
+	if in.Currency == "" {
+		in.Currency = "USD"
+	}
+
+	var v validator
+	v.required(in.Name, "name")
+	v.maxLen(in.Name, "name", 100)
+	v.check(domain.OneOf(in.Currency, domain.Currencies), "currency", "is not a supported currency")
+	if err := v.err(); err != nil {
+		return err
+	}
+	if err := s.store.UpdateUser(r.Context(), userID(r), in); err != nil {
+		return err
+	}
+	return s.me(w, r)
 }

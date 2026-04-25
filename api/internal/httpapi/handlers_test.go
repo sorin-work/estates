@@ -38,7 +38,7 @@ func (f *fakeStore) CreateUser(_ context.Context, email, name, hash string) (sto
 			return store.User{}, &store.ConflictError{Msg: "an account with this email already exists"}
 		}
 	}
-	u := store.User{ID: fmt.Sprintf("00000000-0000-0000-0000-%012d", len(f.users)+1), Email: email, Name: name, PasswordHash: hash, CreatedAt: time.Now()}
+	u := store.User{ID: fmt.Sprintf("00000000-0000-0000-0000-%012d", len(f.users)+1), Email: email, Name: name, PasswordHash: hash, Currency: "USD", CreatedAt: time.Now()}
 	f.users[u.ID] = u
 	return u, nil
 }
@@ -58,6 +58,16 @@ func (f *fakeStore) UserByID(_ context.Context, id string) (store.User, error) {
 		return store.User{}, store.ErrNotFound
 	}
 	return u, nil
+}
+
+func (f *fakeStore) UpdateUser(_ context.Context, id string, in store.UserSettings) error {
+	u, ok := f.users[id]
+	if !ok {
+		return store.ErrNotFound
+	}
+	u.Name, u.Currency = in.Name, in.Currency
+	f.users[id] = u
+	return nil
 }
 
 func (f *fakeStore) CreateProperty(_ context.Context, _ string, in store.PropertyInput) (string, error) {
@@ -155,6 +165,30 @@ func TestRegisterLoginAndMe(t *testing.T) {
 	res.decode(t, &me)
 	if me.Name != "Lee" {
 		t.Errorf("me %+v", me)
+	}
+}
+
+func TestUpdateSettings(t *testing.T) {
+	_, c := newTestServer(t, newFakeStore())
+	var reg authResponse
+	c.mustStatus(http.StatusCreated, "POST", "/api/auth/register", map[string]string{
+		"email": "lee@example.com", "name": "Lee", "password": "s3cret-pass",
+	}).decode(t, &reg)
+	c.token = reg.Token
+	if reg.User.Currency != "USD" {
+		t.Errorf("default currency %q", reg.User.Currency)
+	}
+
+	var me store.User
+	c.mustStatus(http.StatusOK, "PUT", "/api/auth/me", map[string]string{"name": " Lee Smith ", "currency": "eur"}).decode(t, &me)
+	if me.Name != "Lee Smith" || me.Currency != "EUR" {
+		t.Errorf("updated %+v", me)
+	}
+
+	res := c.mustStatus(http.StatusUnprocessableEntity, "PUT", "/api/auth/me", map[string]string{"name": "", "currency": "XYZ"})
+	fields := res.errorFields(t)
+	if fields["name"] == "" || fields["currency"] == "" {
+		t.Errorf("fields %v", fields)
 	}
 }
 

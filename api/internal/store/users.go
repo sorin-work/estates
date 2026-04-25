@@ -51,3 +51,8 @@ func (s *Store) UpdateUser(ctx context.Context, id string, in UserSettings) erro
 		UPDATE users SET name = $2, currency = $3, updated_at = now() WHERE id = $1`,
 		id, in.Name, in.Currency))
 }
+
+func (s *Store) SetPassword(ctx context.Context, id, passwordHash string) error {
+	return execOne(s.pool.Exec(ctx, `
+		UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1`, id, passwordHash))
+}

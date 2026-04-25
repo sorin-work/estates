@@ -70,6 +70,16 @@ func (f *fakeStore) UpdateUser(_ context.Context, id string, in store.UserSettin
 	return nil
 }
 
+func (f *fakeStore) SetPassword(_ context.Context, id, hash string) error {
+	u, ok := f.users[id]
+	if !ok {
+		return store.ErrNotFound
+	}
+	u.PasswordHash = hash
+	f.users[id] = u
+	return nil
+}
+
 func (f *fakeStore) CreateProperty(_ context.Context, _ string, in store.PropertyInput) (string, error) {
 	f.properties = append(f.properties, in)
 	return "11111111-1111-1111-1111-111111111111", nil
@@ -190,6 +200,33 @@ func TestUpdateSettings(t *testing.T) {
 	if fields["name"] == "" || fields["currency"] == "" {
 		t.Errorf("fields %v", fields)
 	}
+}
+
+func TestChangePassword(t *testing.T) {
+	_, c := newTestServer(t, newFakeStore())
+	var reg authResponse
+	c.mustStatus(http.StatusCreated, "POST", "/api/auth/register", map[string]string{
+		"email": "lee@example.com", "name": "Lee", "password": "old-password",
+	}).decode(t, &reg)
+	c.token = reg.Token
+
+	res := c.mustStatus(http.StatusUnprocessableEntity, "PUT", "/api/auth/password", map[string]string{
+		"current_password": "not-it", "new_password": "short",
+	})
+	fields := res.errorFields(t)
+	if fields["current_password"] == "" || fields["new_password"] == "" {
+		t.Errorf("fields %v", fields)
+	}
+
+	c.mustStatus(http.StatusNoContent, "PUT", "/api/auth/password", map[string]string{
+		"current_password": "old-password", "new_password": "new-password",
+	})
+	c.mustStatus(http.StatusUnauthorized, "POST", "/api/auth/login", map[string]string{
+		"email": "lee@example.com", "password": "old-password",
+	})
+	c.mustStatus(http.StatusOK, "POST", "/api/auth/login", map[string]string{
+		"email": "lee@example.com", "password": "new-password",
+	})
 }
 
 func TestRegisterValidation(t *testing.T) {

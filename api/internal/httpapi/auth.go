@@ -17,6 +17,7 @@ type userStore interface {
 	UserByEmail(ctx context.Context, email string) (store.User, error)
 	UserByID(ctx context.Context, id string) (store.User, error)
 	UpdateUser(ctx context.Context, id string, in store.UserSettings) error
+	SetPassword(ctx context.Context, id, passwordHash string) error
 }
 
 type authResponse struct {
@@ -133,4 +134,40 @@ func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	return s.me(w, r)
+}
+
+// changePassword needs the current password, so a stolen token alone cannot
+// lock the owner out of their account.
+func (s *Server) changePassword(w http.ResponseWriter, r *http.Request) error {
+	var in struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if err := decode(w, r, &in); err != nil {
+		return err
+	}
+	u, err := s.store.UserByID(r.Context(), userID(r))
+	if err != nil {
+		return err
+	}
+
+	var v validator
+	v.check(auth.CheckPassword(u.PasswordHash, in.CurrentPassword), "current_password", "is incorrect")
+	if msg := auth.ValidatePassword(in.NewPassword); msg != "" {
+		v.check(false, "new_password", msg)
+	}
+	if err := v.err(); err != nil {
+		return err
+	}
+
+	hash, err := auth.HashPassword(in.NewPassword)
+	if err != nil {
+		return err
+	}
+	if err := s.store.SetPassword(r.Context(), u.ID, hash); err != nil {
+		return err
+	}
+	s.log.Info("password changed", "user_id", u.ID)
+	w.WriteHeader(http.StatusNoContent)
+	return nil
 }

@@ -99,6 +99,7 @@ func (s *Server) Handler() http.Handler {
 			r.Use(s.requireAuth)
 			r.Get("/auth/me", s.handle(s.me))
 			r.Put("/auth/me", s.handle(s.updateMe))
+			r.Put("/auth/password", s.handle(s.changePassword))
 			r.Route("/properties", s.propertyRoutes)
 			r.Route("/units", s.unitRoutes)
 			r.Route("/tenants", s.tenantRoutes)

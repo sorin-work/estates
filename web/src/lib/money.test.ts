@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
-import { centsToInput, formatMoney, formatMoneyCompact, parseMoney } from './money';
+import { afterEach, describe, expect, it } from 'vitest';
+import { centsToInput, currencySymbol, formatMoney, formatMoneyCompact, parseMoney, setCurrency } from './money';
+
+afterEach(() => setCurrency('USD'));
 
 describe('formatMoney', () => {
   it('formats cents as dollars', () => {
@@ -12,6 +14,19 @@ describe('formatMoney', () => {
     expect(formatMoneyCompact(1250000)).toBe('$12.5K');
     expect(formatMoneyCompact(0)).toBe('$0');
   });
+
+  it('follows the selected currency', () => {
+    setCurrency('EUR');
+    expect(formatMoney(123456)).toBe('€1,234.56');
+    expect(currencySymbol()).toBe('€');
+    setCurrency('CHF');
+    expect(formatMoney(5000)).toBe('CHF\u00a050.00');
+  });
+
+  it('ignores an unknown currency', () => {
+    setCurrency('NOPE');
+    expect(formatMoney(100)).toBe('$1.00');
+  });
 });
 
 describe('parseMoney', () => {
@@ -22,6 +37,9 @@ describe('parseMoney', () => {
     [' 12.05 ', 1205],
     ['0', 0],
     ['7.', 700],
+    ['€ 80', 8000],
+    ['CA$15', 1500],
+    ['CHF 12.50', 1250],
   ])('parses %j as %d cents', (input, cents) => {
     expect(parseMoney(input)).toBe(cents);
   });

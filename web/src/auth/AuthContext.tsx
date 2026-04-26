@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import * as authApi from '../api/auth';
 import { getToken, setToken, UNAUTHORIZED_EVENT } from '../api/client';
 import type { User } from '../api/types';
+import { setCurrency } from '../lib/money';
 
 interface AuthState {
   user: User | null;
@@ -11,13 +12,19 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   register: (input: { name: string; email: string; password: string }) => Promise<void>;
   logout: () => void;
+  /** Replaces the user after their settings change. */
+  updateUser: (user: User) => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUserState] = useState<User | null>(null);
+  const setUser = useCallback((u: User | null) => {
+    setCurrency(u?.currency ?? 'USD');
+    setUserState(u);
+  }, []);
   const [loading, setLoading] = useState(() => getToken() !== null);
 
   useEffect(() => {
@@ -37,13 +44,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setUser]);
 
   const logout = useCallback(() => {
     setToken(null);
     setUser(null);
     queryClient.clear();
-  }, [queryClient]);
+  }, [queryClient, setUser]);
 
   useEffect(() => {
     const onUnauthorized = () => logout();
@@ -51,19 +58,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
   }, [logout]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await authApi.login(email, password);
-    setToken(res.token);
-    setUser(res.user);
-  }, []);
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const res = await authApi.login(email, password);
+      setToken(res.token);
+      setUser(res.user);
+    },
+    [setUser],
+  );
 
-  const register = useCallback(async (input: { name: string; email: string; password: string }) => {
-    const res = await authApi.register(input);
-    setToken(res.token);
-    setUser(res.user);
-  }, []);
+  const register = useCallback(
+    async (input: { name: string; email: string; password: string }) => {
+      const res = await authApi.register(input);
+      setToken(res.token);
+      setUser(res.user);
+    },
+    [setUser],
+  );
 
-  const value = useMemo(() => ({ user, loading, login, register, logout }), [user, loading, login, register, logout]);
+  const value = useMemo(
+    () => ({ user, loading, login, register, logout, updateUser: setUser }),
+    [user, loading, login, register, logout, setUser],
+  );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

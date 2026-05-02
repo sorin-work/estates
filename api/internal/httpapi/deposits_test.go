@@ -92,3 +92,28 @@ func TestDepositFlow(t *testing.T) {
 		t.Errorf("deposit counted as a payment: %+v", ledger)
 	}
 }
+
+func TestDepositsAreNotRentCollected(t *testing.T) {
+	c := newDBServer(t, "2026-03-10")
+	l := newLease(t, c, nil)
+
+	// Deposits can no longer be added as a charge.
+	res := c.mustStatus(http.StatusUnprocessableEntity, "POST", "/api/leases/"+l.ID+"/charges", map[string]any{
+		"kind": "deposit", "amount_cents": 150000, "due_date": "2026-01-01",
+	})
+	if res.errorFields(t)["kind"] == "" {
+		t.Errorf("deposit charge: %s", res.Body)
+	}
+
+	c.mustStatus(http.StatusCreated, "POST", "/api/leases/"+l.ID+"/deposit", map[string]any{
+		"kind": "received", "amount_cents": 150000, "occurred_on": "2026-03-02",
+	})
+	c.mustStatus(http.StatusCreated, "POST", "/api/leases/"+l.ID+"/payments", map[string]any{
+		"amount_cents": 150000, "paid_on": "2026-03-02",
+	})
+	var dash dashboardResponse
+	c.mustStatus(http.StatusOK, "GET", "/api/dashboard", nil).decode(t, &dash)
+	if dash.ThisMonth.CollectedCents != 150000 {
+		t.Errorf("collected %d, want only the rent payment", dash.ThisMonth.CollectedCents)
+	}
+}

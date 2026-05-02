@@ -148,13 +148,8 @@ func (s *seeder) lease(ctx context.Context, spec leaseSpec, unitID, tenantID str
 			return err
 		}
 	}
-	if !start.After(s.today) && spec.deposit > 0 {
-		if _, err := s.st.CreateCharge(ctx, s.owner, id, store.ChargeInput{
-			Kind: domain.ChargeDeposit, Description: "Security deposit", AmountCents: spec.deposit, DueDate: start,
-		}); err != nil {
-			return err
-		}
-		if err := s.pay(ctx, id, spec.deposit, start.AddDays(-3), "Deposit"); err != nil {
+	if spec.deposit > 0 {
+		if err := s.deposit(ctx, id, spec, start); err != nil {
 			return err
 		}
 	}
@@ -216,6 +211,34 @@ func (s *seeder) lease(ctx context.Context, spec leaseSpec, unitID, tenantID str
 
 	// Late fees for anything still overdue today.
 	_, err = s.bill.BillLease(ctx, l, s.today)
+	return err
+}
+
+// deposit records the deposit paid before move-in. Marcus Reed moved out
+// early: part of his deposit paid for cleaning and the rest went back.
+func (s *seeder) deposit(ctx context.Context, leaseID string, spec leaseSpec, start domain.Date) error {
+	received := start.AddDays(-3)
+	if received.After(s.today) {
+		return nil
+	}
+	if _, err := s.st.CreateDeposit(ctx, s.owner, leaseID, store.DepositInput{
+		Kind: domain.DepositReceived, AmountCents: spec.deposit, OccurredOn: received, Notes: "Paid at signing",
+	}); err != nil {
+		return err
+	}
+	if !spec.terminated {
+		return nil
+	}
+	settled := s.today.AddDays(-60)
+	const cleaning = 32500
+	if _, err := s.st.CreateDeposit(ctx, s.owner, leaseID, store.DepositInput{
+		Kind: domain.DepositWithheld, AmountCents: cleaning, OccurredOn: settled, Notes: "Carpet cleaning and wall repair",
+	}); err != nil {
+		return err
+	}
+	_, err := s.st.CreateDeposit(ctx, s.owner, leaseID, store.DepositInput{
+		Kind: domain.DepositReturned, AmountCents: spec.deposit - cleaning, OccurredOn: settled, Notes: "Refund by check",
+	})
 	return err
 }
 

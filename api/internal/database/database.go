@@ -67,6 +67,27 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	return nil
 }
 
+// MigrateTo moves the schema up or down to the given version. Tests use it
+// to check data migrations against rows written by the older schema.
+func MigrateTo(ctx context.Context, pool *pgxpool.Pool, version int64) error {
+	db := stdlib.OpenDBFromPool(pool)
+	defer db.Close()
+	provider, err := goose.NewProvider(goose.DialectPostgres, db, mustSub(migrations, "migrations"))
+	if err != nil {
+		return err
+	}
+	current, err := provider.GetDBVersion(ctx)
+	if err != nil {
+		return err
+	}
+	if version < current {
+		_, err = provider.DownTo(ctx, version)
+	} else {
+		_, err = provider.UpTo(ctx, version)
+	}
+	return err
+}
+
 func mustSub(fsys fs.FS, dir string) fs.FS {
 	sub, err := fs.Sub(fsys, dir)
 	if err != nil {

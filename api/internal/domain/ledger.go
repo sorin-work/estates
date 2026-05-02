@@ -15,6 +15,11 @@ const (
 
 var ChargeKinds = []string{ChargeRent, ChargeLateFee, ChargeDeposit, ChargeUtility, ChargeOther}
 
+// ManualChargeKinds can be added to a lease by hand. Rent comes from the
+// lease terms, and deposits are tracked as deposit transactions; deposit
+// charges only remain from before that.
+var ManualChargeKinds = []string{ChargeUtility, ChargeLateFee, ChargeOther}
+
 // Charge statuses as seen on a given day.
 const (
 	StatusPaid     = "paid"

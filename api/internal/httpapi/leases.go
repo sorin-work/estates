@@ -301,8 +301,8 @@ func (s *Server) createCharge(w http.ResponseWriter, r *http.Request) error {
 	trim(&in.Kind, &in.Description)
 
 	var v validator
-	v.check(domain.OneOf(in.Kind, domain.ChargeKinds) && in.Kind != domain.ChargeRent, "kind",
-		"must be one of deposit, utility, late_fee or other")
+	v.check(domain.OneOf(in.Kind, domain.ManualChargeKinds), "kind",
+		"must be one of "+strings.Join(domain.ManualChargeKinds, ", "))
 	v.check(in.AmountCents > 0, "amount_cents", "must be more than zero")
 	v.check(!in.DueDate.IsZero(), "due_date", "is required")
 	v.maxLen(in.Description, "description", 200)

@@ -35,6 +35,8 @@ func (s *Server) leaseRoutes(r chi.Router) {
 	r.Get("/{id}/ledger", s.handle(s.leaseLedger))
 	r.Post("/{id}/charges", s.handle(s.createCharge))
 	r.Post("/{id}/payments", s.handle(s.createPayment))
+	r.Get("/{id}/deposit", s.handle(s.leaseDeposit))
+	r.Post("/{id}/deposit", s.handle(s.createDeposit))
 }
 
 func (s *Server) chargeRoutes(r chi.Router) {

@@ -116,4 +116,7 @@ func TestDepositsAreNotRentCollected(t *testing.T) {
 	if dash.ThisMonth.CollectedCents != 150000 {
 		t.Errorf("collected %d, want only the rent payment", dash.ThisMonth.CollectedCents)
 	}
+	if dash.Deposits.HeldCents != 150000 || dash.Deposits.Leases != 1 {
+		t.Errorf("deposits %+v", dash.Deposits)
+	}
 }

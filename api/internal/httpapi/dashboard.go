@@ -30,6 +30,11 @@ type dashboardResponse struct {
 		OverdueCents  int64 `json:"overdue_cents"`
 		OverdueLeases int   `json:"overdue_leases"`
 	} `json:"outstanding"`
+	// Deposits is the money held for tenants. It is a liability, not income.
+	Deposits struct {
+		HeldCents int64 `json:"held_cents"`
+		Leases    int   `json:"leases"`
+	} `json:"deposits"`
 	Overdue        []billing.Balance `json:"overdue"`
 	ExpiringLeases []store.Lease     `json:"expiring_leases"`
 	Maintenance    struct {
@@ -87,6 +92,15 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) error {
 				resp.Overdue = append(resp.Overdue, b)
 			}
 		}
+	}
+
+	held, err := s.store.DepositsHeld(ctx, owner)
+	if err != nil {
+		return err
+	}
+	for _, cents := range held {
+		resp.Deposits.HeldCents += cents
+		resp.Deposits.Leases++
 	}
 
 	expiring, err := s.store.ExpiringLeases(ctx, owner, today, domain.ExpiringWindowDays)

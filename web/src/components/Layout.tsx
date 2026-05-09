@@ -34,9 +34,14 @@ export default function Layout() {
           <div className="user-name" title={user?.email}>
             {user?.name}
           </div>
-          <button type="button" className="link-button" onClick={logout}>
-            Sign out
-          </button>
+          <div className="sidebar-links">
+            <NavLink to="/settings" onClick={() => setOpen(false)}>
+              Settings
+            </NavLink>
+            <button type="button" className="link-button" onClick={logout}>
+              Sign out
+            </button>
+          </div>
         </div>
       </aside>
       <div className="main">

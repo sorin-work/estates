@@ -12,6 +12,7 @@ import PropertiesPage from './pages/PropertiesPage';
 import PropertyDetailPage from './pages/PropertyDetailPage';
 import RegisterPage from './pages/RegisterPage';
 import RentPage from './pages/RentPage';
+import SettingsPage from './pages/SettingsPage';
 import TenantDetailPage from './pages/TenantDetailPage';
 import TenantsPage from './pages/TenantsPage';
 
@@ -34,6 +35,7 @@ export default function App() {
           <Route path="rent" element={<RentPage />} />
           <Route path="maintenance" element={<MaintenancePage />} />
           <Route path="expenses" element={<ExpensesPage />} />
+          <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>

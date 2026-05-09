@@ -12,3 +12,11 @@ export function register(input: { name: string; email: string; password: string 
 export function me() {
   return api<User>('/auth/me');
 }
+
+export function updateMe(input: { name: string; currency: string }) {
+  return api<User>('/auth/me', { method: 'PUT', body: input });
+}
+
+export function changePassword(input: { current_password: string; new_password: string }) {
+  return api<void>('/auth/password', { method: 'PUT', body: input });
+}

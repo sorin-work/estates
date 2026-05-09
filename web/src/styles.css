@@ -165,9 +165,15 @@ h3 {
   white-space: nowrap;
 }
 
-.sidebar-footer .link-button {
+.sidebar-footer .link-button,
+.sidebar-footer .sidebar-links a {
   color: #9fb3aa;
   padding: 0;
+}
+
+.sidebar-links {
+  display: flex;
+  gap: 1rem;
 }
 
 .main {
@@ -1032,4 +1038,10 @@ input[type='checkbox'] {
 
 .auth-card p {
   margin: 1.25rem 0 0;
+}
+
+.settings {
+  display: grid;
+  gap: 1rem;
+  max-width: 640px;
 }

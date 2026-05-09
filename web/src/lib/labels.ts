@@ -89,3 +89,16 @@ export const maintenanceActions: Record<MaintenanceStatus, string> = {
 export function options<T extends string>(labels: Record<T, string>): { value: T; label: string }[] {
   return (Object.keys(labels) as T[]).map((value) => ({ value, label: labels[value] }));
 }
+
+export const currencies: Record<string, string> = {
+  USD: 'US dollar',
+  CAD: 'Canadian dollar',
+  EUR: 'Euro',
+  GBP: 'British pound',
+  AUD: 'Australian dollar',
+  NZD: 'New Zealand dollar',
+  CHF: 'Swiss franc',
+  SEK: 'Swedish krona',
+  PLN: 'Polish złoty',
+  RON: 'Romanian leu',
+};

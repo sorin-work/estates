@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { useAuth } from '../auth/AuthContext';
 
@@ -13,17 +14,18 @@ const nav = [
 
 export default function Layout() {
   const { user, logout } = useAuth();
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="app">
-      <aside className="sidebar">
+      <aside className={open ? 'sidebar open' : 'sidebar'}>
         <div className="brand">
           <img src="/favicon.svg" alt="" width={28} height={28} />
           <span>Estates</span>
         </div>
         <nav>
           {nav.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end}>
+            <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setOpen(false)}>
               {item.label}
             </NavLink>
           ))}
@@ -38,6 +40,12 @@ export default function Layout() {
         </div>
       </aside>
       <div className="main">
+        <header className="topbar">
+          <button type="button" className="menu-button" aria-label="Toggle navigation" onClick={() => setOpen(!open)}>
+            ☰
+          </button>
+          <span className="topbar-title">Estates</span>
+        </header>
         <main className="content">
           <Outlet />
         </main>

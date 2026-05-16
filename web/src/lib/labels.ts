@@ -1,6 +1,7 @@
 import type {
   ChargeKind,
   ChargeStatus,
+  DepositKind,
   ExpenseCategory,
   LeaseStatus,
   MaintenancePriority,
@@ -101,4 +102,10 @@ export const currencies: Record<string, string> = {
   SEK: 'Swedish krona',
   PLN: 'Polish złoty',
   RON: 'Romanian leu',
+};
+
+export const depositKinds: Record<DepositKind, string> = {
+  received: 'Received',
+  returned: 'Returned to tenant',
+  withheld: 'Withheld',
 };

@@ -8,7 +8,7 @@ import { FormError } from '../States';
 import { useFormSubmit } from '../useFormSubmit';
 import MoneyInput from './MoneyInput';
 
-const kinds: ChargeInput['kind'][] = ['utility', 'deposit', 'late_fee', 'other'];
+const kinds: ChargeInput['kind'][] = ['utility', 'late_fee', 'other'];
 
 export default function ChargeForm({
   onSubmit,

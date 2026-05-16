@@ -144,7 +144,7 @@ export interface PaymentInput {
 }
 
 export interface ChargeInput {
-  kind: Exclude<ChargeKind, 'rent'>;
+  kind: Exclude<ChargeKind, 'rent' | 'deposit'>;
   description: string;
   amount_cents: Cents;
   due_date: ISODate;
@@ -267,4 +267,33 @@ export interface Dashboard {
     recent: MaintenanceRequest[];
   };
   monthly: MonthTotal[];
+}
+
+export type DepositKind = 'received' | 'returned' | 'withheld';
+
+export interface DepositTransaction {
+  id: string;
+  lease_id: string;
+  kind: DepositKind;
+  amount_cents: Cents;
+  occurred_on: ISODate;
+  notes: string;
+  created_at: string;
+}
+
+export interface DepositInput {
+  kind: DepositKind;
+  amount_cents: Cents;
+  occurred_on: ISODate;
+  notes: string;
+}
+
+export interface Deposit {
+  lease_id: string;
+  agreed_cents: Cents;
+  received_cents: Cents;
+  returned_cents: Cents;
+  withheld_cents: Cents;
+  held_cents: Cents;
+  transactions: DepositTransaction[];
 }

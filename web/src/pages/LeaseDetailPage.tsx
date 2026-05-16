@@ -4,16 +4,20 @@ import { Link, useNavigate, useParams } from 'react-router';
 import {
   addCharge,
   deleteCharge,
+  deleteDepositTransaction,
   deleteLease,
+  getDeposit,
   getLease,
   getLedger,
+  recordDeposit,
   recordPayment,
   terminateLease,
   updateLease,
 } from '../api/leases';
 import { deletePayment } from '../api/rent';
-import type { ChargeInput, LeaseInput, PaymentInput } from '../api/types';
+import type { ChargeInput, DepositInput, LeaseInput, PaymentInput } from '../api/types';
 import ChargeForm from '../components/forms/ChargeForm';
+import DepositForm from '../components/forms/DepositForm';
 import LeaseForm from '../components/forms/LeaseForm';
 import PaymentForm from '../components/forms/PaymentForm';
 import Modal from '../components/Modal';
@@ -22,10 +26,10 @@ import StatCard from '../components/StatCard';
 import { ErrorState, FormError, Loading } from '../components/States';
 import { ChargeStatusBadge, LeaseStatusBadge } from '../components/StatusBadge';
 import { formatDate, today } from '../lib/dates';
-import { chargeKinds, paymentMethods } from '../lib/labels';
+import { chargeKinds, depositKinds, paymentMethods } from '../lib/labels';
 import { formatMoney } from '../lib/money';
 
-type Dialog = 'edit' | 'payment' | 'charge' | 'terminate' | null;
+type Dialog = 'edit' | 'payment' | 'charge' | 'terminate' | 'deposit' | null;
 
 function ordinal(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
@@ -42,9 +46,10 @@ export default function LeaseDetailPage() {
 
   const lease = useQuery({ queryKey: ['leases', 'detail', id], queryFn: () => getLease(id) });
   const ledger = useQuery({ queryKey: ['ledger', id], queryFn: () => getLedger(id) });
+  const deposit = useQuery({ queryKey: ['deposit', id], queryFn: () => getDeposit(id) });
 
   const refresh = () => {
-    for (const key of ['leases', 'ledger', 'payments', 'balances', 'dashboard', 'units', 'properties']) {
+    for (const key of ['leases', 'ledger', 'deposit', 'payments', 'balances', 'dashboard', 'units', 'properties']) {
       void queryClient.invalidateQueries({ queryKey: [key] });
     }
   };
@@ -85,6 +90,14 @@ export default function LeaseDetailPage() {
       navigate('/leases');
     },
   });
+  const saveDeposit = useMutation({
+    mutationFn: (input: DepositInput) => recordDeposit(id, input),
+    onSuccess: () => {
+      refresh();
+      close();
+    },
+  });
+  const removeDeposit = useMutation({ mutationFn: deleteDepositTransaction, onSuccess: refresh });
   const removeCharge = useMutation({ mutationFn: deleteCharge, onSuccess: refresh });
   const removePayment = useMutation({ mutationFn: deletePayment, onSuccess: refresh });
 
@@ -92,6 +105,7 @@ export default function LeaseDetailPage() {
   if (lease.error) return <ErrorState error={lease.error} />;
   const l = lease.data;
   const ld = ledger.data;
+  const dep = deposit.data;
 
   return (
     <>
@@ -149,9 +163,13 @@ export default function LeaseDetailPage() {
           detail={`due on the ${ordinal(l.due_day)}, ${l.grace_days} days grace`}
         />
         <StatCard
-          label="Deposit"
-          value={formatMoney(l.deposit_cents)}
-          detail={l.late_fee_cents ? `${formatMoney(l.late_fee_cents)} late fee` : 'no late fee'}
+          label="Deposit held"
+          value={dep ? formatMoney(dep.held_cents) : '…'}
+          detail={
+            dep && dep.held_cents < l.deposit_cents && dep.received_cents < l.deposit_cents
+              ? `${formatMoney(l.deposit_cents - dep.received_cents)} still to collect`
+              : `${formatMoney(l.deposit_cents)} agreed`
+          }
         />
       </div>
       {l.notes && <p className="notes">{l.notes}</p>}
@@ -249,6 +267,61 @@ export default function LeaseDetailPage() {
         )}
       </section>
 
+      <section className="card">
+        <div className="card-header">
+          <h2>Deposit</h2>
+          {dep && (
+            <button type="button" className="link-button" onClick={() => setDialog('deposit')}>
+              {dep.held_cents > 0 ? 'Return or withhold' : 'Record deposit'}
+            </button>
+          )}
+        </div>
+        {dep && dep.transactions.length === 0 && (
+          <p className="muted">
+            No deposit recorded yet. The lease asks for {formatMoney(l.deposit_cents)}. Deposits are held for the tenant
+            and do not count as rent.
+          </p>
+        )}
+        {dep && dep.transactions.length > 0 && (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Notes</th>
+                <th className="num">Amount</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {dep.transactions.map((t) => (
+                <tr key={t.id}>
+                  <td>{formatDate(t.occurred_on)}</td>
+                  <td>{depositKinds[t.kind]}</td>
+                  <td>{t.notes || '—'}</td>
+                  <td className="num">
+                    {t.kind === 'received' ? '' : '−'}
+                    {formatMoney(t.amount_cents)}
+                  </td>
+                  <td className="row-actions">
+                    <button
+                      type="button"
+                      className="link-button danger"
+                      onClick={() => {
+                        if (confirm('Delete this deposit entry?')) removeDeposit.mutate(t.id);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        <FormError error={removeDeposit.error} />
+      </section>
+
       <div className="danger-zone">
         <button
           type="button"
@@ -278,6 +351,11 @@ export default function LeaseDetailPage() {
       {dialog === 'charge' && (
         <Modal title="Add charge" onClose={close}>
           <ChargeForm onSubmit={(input) => charge.mutateAsync(input)} onCancel={close} />
+        </Modal>
+      )}
+      {dialog === 'deposit' && dep && (
+        <Modal title="Deposit" onClose={close}>
+          <DepositForm deposit={dep} onSubmit={(input) => saveDeposit.mutateAsync(input)} onCancel={close} />
         </Modal>
       )}
       {dialog === 'terminate' && (

@@ -1,5 +1,15 @@
 import { api } from './client';
-import type { ChargeInput, Lease, LeaseInput, LeaseStatus, Ledger, Payment, PaymentInput } from './types';
+import type {
+  ChargeInput,
+  Deposit,
+  DepositInput,
+  Lease,
+  LeaseInput,
+  LeaseStatus,
+  Ledger,
+  Payment,
+  PaymentInput,
+} from './types';
 
 export interface LeaseFilter {
   status?: LeaseStatus | '';
@@ -24,3 +34,8 @@ export const deleteCharge = (id: string) => api<void>(`/charges/${id}`, { method
 
 export const recordPayment = (leaseId: string, input: PaymentInput) =>
   api<Payment>(`/leases/${leaseId}/payments`, { method: 'POST', body: input });
+
+export const getDeposit = (leaseId: string) => api<Deposit>(`/leases/${leaseId}/deposit`);
+export const recordDeposit = (leaseId: string, input: DepositInput) =>
+  api<Deposit>(`/leases/${leaseId}/deposit`, { method: 'POST', body: input });
+export const deleteDepositTransaction = (id: string) => api<void>(`/deposit-transactions/${id}`, { method: 'DELETE' });

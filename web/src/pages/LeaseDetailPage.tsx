@@ -1,7 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
-import { addCharge, deleteCharge, deleteLease, getLease, getLedger, recordPayment, updateLease } from '../api/leases';
+import {
+  addCharge,
+  deleteCharge,
+  deleteLease,
+  getLease,
+  getLedger,
+  recordPayment,
+  terminateLease,
+  updateLease,
+} from '../api/leases';
 import { deletePayment } from '../api/rent';
 import type { ChargeInput, LeaseInput, PaymentInput } from '../api/types';
 import ChargeForm from '../components/forms/ChargeForm';
@@ -10,13 +19,13 @@ import PaymentForm from '../components/forms/PaymentForm';
 import Modal from '../components/Modal';
 import PageHeader from '../components/PageHeader';
 import StatCard from '../components/StatCard';
-import { ErrorState, Loading } from '../components/States';
+import { ErrorState, FormError, Loading } from '../components/States';
 import { ChargeStatusBadge, LeaseStatusBadge } from '../components/StatusBadge';
-import { formatDate } from '../lib/dates';
+import { formatDate, today } from '../lib/dates';
 import { chargeKinds, paymentMethods } from '../lib/labels';
 import { formatMoney } from '../lib/money';
 
-type Dialog = 'edit' | 'payment' | 'charge' | null;
+type Dialog = 'edit' | 'payment' | 'charge' | 'terminate' | null;
 
 function ordinal(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
@@ -29,6 +38,7 @@ export default function LeaseDetailPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<Dialog>(null);
+  const [terminateOn, setTerminateOn] = useState(today());
 
   const lease = useQuery({ queryKey: ['leases', 'detail', id], queryFn: () => getLease(id) });
   const ledger = useQuery({ queryKey: ['ledger', id], queryFn: () => getLedger(id) });
@@ -56,6 +66,13 @@ export default function LeaseDetailPage() {
   });
   const charge = useMutation({
     mutationFn: (input: ChargeInput) => addCharge(id, input),
+    onSuccess: () => {
+      refresh();
+      close();
+    },
+  });
+  const terminate = useMutation({
+    mutationFn: () => terminateLease(id, terminateOn),
     onSuccess: () => {
       refresh();
       close();
@@ -102,6 +119,11 @@ export default function LeaseDetailPage() {
             <button type="button" className="button secondary" onClick={() => setDialog('edit')}>
               Edit
             </button>
+            {(l.status === 'active' || l.status === 'upcoming') && (
+              <button type="button" className="button secondary" onClick={() => setDialog('terminate')}>
+                End early
+              </button>
+            )}
           </>
         }
       />
@@ -256,6 +278,39 @@ export default function LeaseDetailPage() {
       {dialog === 'charge' && (
         <Modal title="Add charge" onClose={close}>
           <ChargeForm onSubmit={(input) => charge.mutateAsync(input)} onCancel={close} />
+        </Modal>
+      )}
+      {dialog === 'terminate' && (
+        <Modal title="End lease early" onClose={close}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              terminate.mutate();
+            }}
+          >
+            <FormError error={terminate.error} />
+            <p className="muted">
+              The lease stays active until this date. Rent due after it is removed; adjust the final month with a charge
+              if needed.
+            </p>
+            <div className="field">
+              <label htmlFor="terminate-on">Last day</label>
+              <input
+                id="terminate-on"
+                type="date"
+                value={terminateOn}
+                onChange={(e) => setTerminateOn(e.target.value)}
+              />
+            </div>
+            <div className="form-actions">
+              <button type="button" className="button secondary" onClick={close}>
+                Cancel
+              </button>
+              <button type="submit" className="button danger" disabled={terminate.isPending}>
+                End lease
+              </button>
+            </div>
+          </form>
         </Modal>
       )}
     </>

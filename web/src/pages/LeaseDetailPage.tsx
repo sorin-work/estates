@@ -368,8 +368,8 @@ export default function LeaseDetailPage() {
           >
             <FormError error={terminate.error} />
             <p className="muted">
-              The lease stays active until this date. Rent due after it is removed; adjust the final month with a charge
-              if needed.
+              The lease stays active until this date. Rent due after it is removed and the final month is prorated to
+              the days up to it.
             </p>
             <div className="field">
               <label htmlFor="terminate-on">Last day</label>

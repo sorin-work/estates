@@ -16,6 +16,7 @@ const dashboard: Dashboard = {
   occupancy: { units: 10, occupied: 9, vacant: 1, rate: 0.9 },
   this_month: { month: '2026-12', charged_cents: 1500000, collected_cents: 1200000, expenses_cents: 250000 },
   outstanding: { balance_cents: 420000, overdue_cents: 279000, overdue_leases: 1 },
+  deposits: { held_cents: 1475000, leases: 9 },
   overdue: [
     {
       lease: {
@@ -61,6 +62,8 @@ describe('DashboardPage', () => {
     expect(screen.getByText('9 of 10 units let · 1 vacant')).toBeInTheDocument();
     expect(screen.getByText('$12,000.00')).toBeInTheDocument();
     expect(screen.getByText('of $15,000.00 charged (80%)')).toBeInTheDocument();
+    expect(screen.getByText('$14,750.00')).toBeInTheDocument();
+    expect(screen.getByText('for 9 leases, not income')).toBeInTheDocument();
 
     const overdue = screen.getByRole('heading', { name: 'Overdue rent' }).closest('section')!;
     expect(within(overdue).getByText('Tom Becker')).toBeInTheDocument();

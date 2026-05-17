@@ -57,6 +57,11 @@ export default function DashboardPage() {
           value={formatMoney(month.collected_cents - month.expenses_cents)}
           detail={`${formatMoney(month.expenses_cents)} in expenses`}
         />
+        <StatCard
+          label="Deposits held"
+          value={formatMoney(data.deposits.held_cents)}
+          detail={`for ${data.deposits.leases} ${data.deposits.leases === 1 ? 'lease' : 'leases'}, not income`}
+        />
       </div>
 
       <section className="card">

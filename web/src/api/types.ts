@@ -259,6 +259,7 @@ export interface Dashboard {
   occupancy: { units: number; occupied: number; vacant: number; rate: number };
   this_month: MonthTotal;
   outstanding: { balance_cents: Cents; overdue_cents: Cents; overdue_leases: number };
+  deposits: { held_cents: Cents; leases: number };
   overdue: Balance[];
   expiring_leases: Lease[];
   maintenance: {

@@ -83,6 +83,12 @@ func TestRentFlow(t *testing.T) {
 	c.mustStatus(http.StatusCreated, "POST", "/api/leases/"+lease.ID+"/payments", map[string]any{
 		"amount_cents": 188000, "paid_on": "2026-02-02", "method": "bank_transfer",
 	})
+	res = c.mustStatus(http.StatusUnprocessableEntity, "POST", "/api/leases/"+lease.ID+"/payments", map[string]any{
+		"amount_cents": 100, "paid_on": "2026-04-01",
+	})
+	if res.errorFields(t)["paid_on"] == "" {
+		t.Errorf("future payment: %s", res.Body)
+	}
 
 	var balances []billing.Balance
 	c.mustStatus(http.StatusOK, "GET", "/api/rent/balances?overdue=true", nil).decode(t, &balances)

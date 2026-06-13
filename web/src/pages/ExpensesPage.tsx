@@ -49,6 +49,7 @@ export default function ExpensesPage() {
   }
 
   const data = expenses.data;
+  const top = data?.by_category[0]?.amount_cents ?? 0;
 
   return (
     <>
@@ -92,48 +93,67 @@ export default function ExpensesPage() {
         </EmptyState>
       )}
       {data && data.expenses.length > 0 && (
-        <div className="card flush">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Property</th>
-                <th>Category</th>
-                <th>Details</th>
-                <th className="num">Amount</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {data.expenses.map((e) => (
-                <tr key={e.id}>
-                  <td>{formatDate(e.spent_on)}</td>
-                  <td>{e.property_name}</td>
-                  <td>{expenseCategories[e.category]}</td>
-                  <td>
-                    {e.vendor && <strong>{e.vendor} </strong>}
-                    <span className="muted">{e.description}</span>
-                    {e.maintenance_title && <div className="muted small">For: {e.maintenance_title}</div>}
-                  </td>
-                  <td className="num">{formatMoney(e.amount_cents)}</td>
-                  <td className="row-actions">
-                    <button type="button" className="link-button" onClick={() => setForm(e)}>
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      className="link-button danger"
-                      onClick={() => {
-                        if (confirm('Delete this expense?')) remove.mutate(e.id);
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </td>
+        <div className="grid-sidebar">
+          <div className="card flush">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Property</th>
+                  <th>Category</th>
+                  <th>Details</th>
+                  <th className="num">Amount</th>
+                  <th />
                 </tr>
+              </thead>
+              <tbody>
+                {data.expenses.map((e) => (
+                  <tr key={e.id}>
+                    <td>{formatDate(e.spent_on)}</td>
+                    <td>{e.property_name}</td>
+                    <td>{expenseCategories[e.category]}</td>
+                    <td>
+                      {e.vendor && <strong>{e.vendor} </strong>}
+                      <span className="muted">{e.description}</span>
+                      {e.maintenance_title && <div className="muted small">For: {e.maintenance_title}</div>}
+                    </td>
+                    <td className="num">{formatMoney(e.amount_cents)}</td>
+                    <td className="row-actions">
+                      <button type="button" className="link-button" onClick={() => setForm(e)}>
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        className="link-button danger"
+                        onClick={() => {
+                          if (confirm('Delete this expense?')) remove.mutate(e.id);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <aside className="card">
+            <div className="stat-label">Total</div>
+            <div className="stat-value">{formatMoney(data.total_cents)}</div>
+            <ul className="bars">
+              {data.by_category.map((c) => (
+                <li key={c.category}>
+                  <div className="bar-label">
+                    <span>{expenseCategories[c.category]}</span>
+                    <span>{formatMoney(c.amount_cents)}</span>
+                  </div>
+                  <div className="bar-track">
+                    <div className="bar-fill" style={{ width: `${(c.amount_cents / top) * 100}%` }} />
+                  </div>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+          </aside>
         </div>
       )}
       {form && (

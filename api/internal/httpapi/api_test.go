@@ -32,6 +32,18 @@ func newDBServer(t *testing.T, today string) *client {
 	return c
 }
 
+// newDBServerFor signs up another user on the same server as c.
+func newDBServerFor(t *testing.T, c *client, email string) *client {
+	t.Helper()
+	other := &client{t: t, handler: c.handler}
+	var auth authResponse
+	other.mustStatus(http.StatusCreated, "POST", "/api/auth/register", map[string]string{
+		"email": email, "name": "Someone Else", "password": "password123",
+	}).decode(t, &auth)
+	other.token = auth.Token
+	return other
+}
+
 type idOnly struct {
 	ID string `json:"id"`
 }

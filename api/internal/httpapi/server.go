@@ -28,6 +28,7 @@ type Store interface {
 	maintenanceStore
 	expenseStore
 	depositStore
+	vendorStore
 	dashboardStore
 }
 
@@ -111,6 +112,7 @@ func (s *Server) Handler() http.Handler {
 			r.Route("/maintenance", s.maintenanceRoutes)
 			r.Route("/expenses", s.expenseRoutes)
 			r.Route("/deposit-transactions", s.depositRoutes)
+			r.Route("/vendors", s.vendorRoutes)
 			r.Get("/dashboard", s.handle(s.dashboard))
 		})
 	})

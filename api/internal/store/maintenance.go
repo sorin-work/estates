@@ -21,6 +21,7 @@ type MaintenanceRequest struct {
 	Priority     string       `db:"priority" json:"priority"`
 	Status       string       `db:"status" json:"status"`
 	Vendor       string       `db:"vendor" json:"vendor"`
+	VendorID     *string      `db:"vendor_id" json:"vendor_id"`
 	ReportedOn   domain.Date  `db:"reported_on" json:"reported_on"`
 	CompletedOn  *domain.Date `db:"completed_on" json:"completed_on"`
 	CostCents    int64        `db:"cost_cents" json:"cost_cents"`
@@ -35,6 +36,7 @@ type MaintenanceInput struct {
 	Description string      `json:"description"`
 	Priority    string      `json:"priority"`
 	Vendor      string      `json:"vendor"`
+	VendorID    *string     `json:"vendor_id"`
 	ReportedOn  domain.Date `json:"reported_on"`
 }
 
@@ -43,16 +45,19 @@ type MaintenanceFilter struct {
 	// Status is a single status, or "active" for anything not closed.
 	Status   string
 	Priority string
+	VendorID string
 }
 
 const maintenanceSelect = `
 	SELECT m.id, m.property_id, p.name AS property_name, m.unit_id, u.label AS unit_label,
-	       m.title, m.description, m.priority, m.status, m.vendor, m.reported_on, m.completed_on,
+	       m.title, m.description, m.priority, m.status, COALESCE(vd.name, m.vendor) AS vendor, m.vendor_id,
+	       m.reported_on, m.completed_on,
 	       m.created_at, m.updated_at,
 	       COALESCE((SELECT sum(e.amount_cents) FROM expenses e WHERE e.maintenance_request_id = m.id), 0)::bigint AS cost_cents
 	  FROM maintenance_requests m
 	  JOIN properties p ON p.id = m.property_id AND p.owner_id = $1
-	  LEFT JOIN units u ON u.id = m.unit_id`
+	  LEFT JOIN units u ON u.id = m.unit_id
+	  LEFT JOIN vendors vd ON vd.id = m.vendor_id`
 
 // priorityRank orders urgent first.
 const priorityRank = `CASE m.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END`
@@ -71,6 +76,9 @@ func (s *Store) ListMaintenance(ctx context.Context, ownerID string, f Maintenan
 	}
 	if f.Priority != "" {
 		w.add("m.priority = ?", f.Priority)
+	}
+	if f.VendorID != "" {
+		w.add("m.vendor_id = ?", f.VendorID)
 	}
 	q := maintenanceSelect + w.where() +
 		` ORDER BY (m.status IN ('completed', 'cancelled')), ` + priorityRank + `, m.reported_on DESC, m.created_at DESC`
@@ -103,12 +111,16 @@ func (s *Store) CreateMaintenance(ctx context.Context, ownerID string, in Mainte
 	if err := s.checkUnitInProperty(ctx, in.PropertyID, in.UnitID); err != nil {
 		return "", err
 	}
+	if err := s.checkVendor(ctx, ownerID, in.VendorID); err != nil {
+		return "", err
+	}
 	var id string
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO maintenance_requests (property_id, unit_id, title, description, priority, vendor, reported_on)
-		SELECT p.id, $3, $4, $5, $6, $7, $8 FROM properties p WHERE p.owner_id = $1 AND p.id = $2
+		INSERT INTO maintenance_requests (property_id, unit_id, title, description, priority, vendor, vendor_id, reported_on)
+		SELECT p.id, $3, $4, $5, $6, `+vendorNameAt("$7", "$8")+`, $8, $9 FROM properties p WHERE p.owner_id = $1 AND p.id = $2
 		RETURNING id`,
-		ownerID, in.PropertyID, emptyToNil(in.UnitID), in.Title, in.Description, in.Priority, in.Vendor, in.ReportedOn,
+		ownerID, in.PropertyID, emptyToNil(in.UnitID), in.Title, in.Description, in.Priority, in.Vendor,
+		emptyToNil(in.VendorID), in.ReportedOn,
 	).Scan(&id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -123,14 +135,18 @@ func (s *Store) UpdateMaintenance(ctx context.Context, ownerID, id string, in Ma
 	if err := s.checkUnitInProperty(ctx, in.PropertyID, in.UnitID); err != nil {
 		return err
 	}
+	if err := s.checkVendor(ctx, ownerID, in.VendorID); err != nil {
+		return err
+	}
 	return execOne(s.pool.Exec(ctx, `
 		UPDATE maintenance_requests m
 		   SET property_id = $3, unit_id = $4, title = $5, description = $6, priority = $7,
-		       vendor = $8, reported_on = $9, updated_at = now()
+		       vendor = `+vendorNameAt("$8", "$9")+`, vendor_id = $9, reported_on = $10, updated_at = now()
 		  FROM properties p, properties np
 		 WHERE p.id = m.property_id AND p.owner_id = $1 AND m.id = $2
 		   AND np.id = $3 AND np.owner_id = $1`,
-		ownerID, id, in.PropertyID, emptyToNil(in.UnitID), in.Title, in.Description, in.Priority, in.Vendor, in.ReportedOn,
+		ownerID, id, in.PropertyID, emptyToNil(in.UnitID), in.Title, in.Description, in.Priority, in.Vendor,
+		emptyToNil(in.VendorID), in.ReportedOn,
 	))
 }
 

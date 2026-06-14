@@ -39,6 +39,9 @@ func (s *Server) listExpenses(w http.ResponseWriter, r *http.Request) error {
 	if f.PropertyID, err = queryID(r, "property_id"); err != nil {
 		return err
 	}
+	if f.VendorID, err = queryID(r, "vendor_id"); err != nil {
+		return err
+	}
 	f.Category = r.URL.Query().Get("category")
 	if f.Category != "" && !domain.OneOf(f.Category, domain.ExpenseCategories) {
 		return errBadRequest("unknown category " + f.Category)
@@ -94,6 +97,7 @@ func decodeExpense(w http.ResponseWriter, r *http.Request) (store.ExpenseInput, 
 	v.check(in.AmountCents > 0, "amount_cents", "must be more than zero")
 	v.check(!in.SpentOn.IsZero(), "spent_on", "is required")
 	v.maxLen(in.Vendor, "vendor", 120)
+	v.check(in.VendorID == nil || *in.VendorID == "" || isUUID(*in.VendorID), "vendor_id", "is not a valid id")
 	v.maxLen(in.Description, "description", 1000)
 	return in, v.err()
 }

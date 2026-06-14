@@ -54,6 +54,9 @@ func (s *Server) listMaintenance(w http.ResponseWriter, r *http.Request) error {
 	if f.Status != "" && f.Status != "active" && !domain.OneOf(f.Status, domain.MaintenanceStatuses) {
 		return errBadRequest("unknown status " + f.Status)
 	}
+	if f.VendorID, err = queryID(r, "vendor_id"); err != nil {
+		return err
+	}
 	f.Priority = r.URL.Query().Get("priority")
 	if f.Priority != "" && !domain.OneOf(f.Priority, domain.MaintenancePriorities) {
 		return errBadRequest("unknown priority " + f.Priority)
@@ -105,6 +108,7 @@ func (s *Server) decodeMaintenance(w http.ResponseWriter, r *http.Request) (stor
 	v.maxLen(in.Description, "description", 5000)
 	v.check(domain.OneOf(in.Priority, domain.MaintenancePriorities), "priority", "must be low, normal, high or urgent")
 	v.maxLen(in.Vendor, "vendor", 120)
+	v.check(in.VendorID == nil || *in.VendorID == "" || isUUID(*in.VendorID), "vendor_id", "is not a valid id")
 	return in, v.err()
 }
 

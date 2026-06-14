@@ -24,3 +24,9 @@ func OneOf(v string, options []string) bool {
 	}
 	return false
 }
+
+// Vendor trades.
+var VendorTrades = []string{
+	"plumbing", "electrical", "hvac", "appliances", "carpentry", "painting", "cleaning",
+	"landscaping", "roofing", "pest_control", "locksmith", "handyman", "other",
+}

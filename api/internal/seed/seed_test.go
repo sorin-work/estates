@@ -64,6 +64,19 @@ func TestDemoSeed(t *testing.T) {
 		}
 	}
 
+	vendors, err := st.ListVendors(ctx, u.ID, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vendors) != len(demoVendors) {
+		t.Errorf("%d vendors", len(vendors))
+	}
+	for _, v := range vendors {
+		if v.SpentCents == 0 {
+			t.Errorf("vendor %s has no expenses", v.Name)
+		}
+	}
+
 	active, err := st.ListMaintenance(ctx, u.ID, store.MaintenanceFilter{Status: "active"})
 	if err != nil {
 		t.Fatal(err)

@@ -86,6 +86,17 @@ var demoLeases = []leaseSpec{
 	{unit: "harbor/203", tenant: "Elena Petrova", startMonths: -1, lengthMonths: 12, startDay: 1, rent: 172500, deposit: 172500, dueDay: 1, grace: 3, lateFee: 5000, payer: onTime},
 }
 
+// demoVendors are the trades people the demo landlord calls. Utilities,
+// banks and the county are left as plain names on their expenses.
+var demoVendors = []store.VendorInput{
+	{Name: "Rapid Rooter Plumbing", Trade: "plumbing", ContactName: "Luis Ortega", Phone: "(503) 555-0110", Email: "dispatch@rapidrooter.example"},
+	{Name: "Comfort Air HVAC", Trade: "hvac", ContactName: "Dana Wells", Phone: "(503) 555-0122", Notes: "Annual service contract for the Harbor boiler."},
+	{Name: "Fresh Coat Painting", Trade: "painting", ContactName: "Sam Price", Phone: "(971) 555-0133"},
+	{Name: "GreenLeaf Landscaping", Trade: "landscaping", Phone: "(503) 555-0144", Email: "office@greenleaf.example", Notes: "Monthly grounds and snow service at Harbor View."},
+	{Name: "Appliance Pros", Trade: "appliances", Phone: "(503) 555-0155"},
+	{Name: "Handy Hank Repairs", Trade: "handyman", ContactName: "Hank Morrow", Phone: "(971) 555-0166", Notes: "Good for small jobs, books up a week ahead."},
+}
+
 type maintenanceSpec struct {
 	prop, unit         string
 	title, description string

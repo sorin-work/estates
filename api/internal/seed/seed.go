@@ -46,6 +46,8 @@ type seeder struct {
 	today domain.Date
 	rnd   *rand.Rand
 	owner string
+	// vendors maps vendor names to IDs.
+	vendors map[string]string
 
 	leases, payments int
 }
@@ -111,6 +113,15 @@ func (s *seeder) run(ctx context.Context) error {
 		tenants[t.FirstName+" "+t.LastName] = id
 	}
 
+	s.vendors = map[string]string{}
+	for _, v := range demoVendors {
+		id, err := s.st.CreateVendor(ctx, s.owner, v)
+		if err != nil {
+			return err
+		}
+		s.vendors[v.Name] = id
+	}
+
 	for _, spec := range demoLeases {
 		if err := s.lease(ctx, spec, units[spec.unit], tenants[spec.tenant]); err != nil {
 			return fmt.Errorf("lease for %s: %w", spec.tenant, err)
@@ -121,6 +132,16 @@ func (s *seeder) run(ctx context.Context) error {
 		return err
 	}
 	return s.expenses(ctx, props)
+}
+
+// vendorID returns the ID of a demo vendor, or nil for names that are not
+// vendors.
+func (s *seeder) vendorID(name string) *string {
+	id, ok := s.vendors[name]
+	if !ok {
+		return nil
+	}
+	return &id
 }
 
 func (s *seeder) monthsAgo(n, day int) domain.Date {
@@ -272,7 +293,7 @@ func (s *seeder) maintenance(ctx context.Context, props, units map[string]string
 		reported := s.today.AddDays(-m.daysAgo)
 		id, err := s.st.CreateMaintenance(ctx, s.owner, store.MaintenanceInput{
 			PropertyID: props[m.prop], UnitID: unitID, Title: m.title, Description: m.description,
-			Priority: m.priority, Vendor: m.vendor, ReportedOn: reported,
+			Priority: m.priority, Vendor: m.vendor, VendorID: s.vendorID(m.vendor), ReportedOn: reported,
 		})
 		if err != nil {
 			return err
@@ -294,7 +315,7 @@ func (s *seeder) maintenance(ctx context.Context, props, units map[string]string
 			}
 			if _, err := s.st.CreateExpense(ctx, s.owner, store.ExpenseInput{
 				PropertyID: props[m.prop], MaintenanceRequestID: &id, Category: "repairs",
-				AmountCents: m.cost, SpentOn: spent, Vendor: m.vendor, Description: m.title,
+				AmountCents: m.cost, SpentOn: spent, Vendor: m.vendor, VendorID: s.vendorID(m.vendor), Description: m.title,
 			}); err != nil {
 				return err
 			}
@@ -309,7 +330,8 @@ func (s *seeder) expenses(ctx context.Context, props map[string]string) error {
 			return nil
 		}
 		_, err := s.st.CreateExpense(ctx, s.owner, store.ExpenseInput{
-			PropertyID: props[prop], Category: category, AmountCents: amount, SpentOn: on, Vendor: vendor, Description: desc,
+			PropertyID: props[prop], Category: category, AmountCents: amount, SpentOn: on,
+			Vendor: vendor, VendorID: s.vendorID(vendor), Description: desc,
 		})
 		return err
 	}

@@ -298,3 +298,41 @@ export interface Deposit {
   held_cents: Cents;
   transactions: DepositTransaction[];
 }
+
+export type VendorTrade =
+  | 'plumbing'
+  | 'electrical'
+  | 'hvac'
+  | 'appliances'
+  | 'carpentry'
+  | 'painting'
+  | 'cleaning'
+  | 'landscaping'
+  | 'roofing'
+  | 'pest_control'
+  | 'locksmith'
+  | 'handyman'
+  | 'other';
+
+export interface Vendor {
+  id: string;
+  name: string;
+  trade: VendorTrade;
+  contact_name: string;
+  phone: string;
+  email: string;
+  notes: string;
+  created_at: string;
+  open_jobs: number;
+  spent_cents: Cents;
+  last_used_on: ISODate | null;
+}
+
+export interface VendorInput {
+  name: string;
+  trade: VendorTrade;
+  contact_name: string;
+  phone: string;
+  email: string;
+  notes: string;
+}

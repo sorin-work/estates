@@ -8,6 +8,7 @@ import type {
   MaintenanceStatus,
   PaymentMethod,
   PropertyKind,
+  VendorTrade,
 } from '../api/types';
 
 export const propertyKinds: Record<PropertyKind, string> = {
@@ -108,4 +109,20 @@ export const depositKinds: Record<DepositKind, string> = {
   received: 'Received',
   returned: 'Returned to tenant',
   withheld: 'Withheld',
+};
+
+export const vendorTrades: Record<VendorTrade, string> = {
+  plumbing: 'Plumbing',
+  electrical: 'Electrical',
+  hvac: 'Heating and cooling',
+  appliances: 'Appliances',
+  carpentry: 'Carpentry',
+  painting: 'Painting',
+  cleaning: 'Cleaning',
+  landscaping: 'Landscaping',
+  roofing: 'Roofing',
+  pest_control: 'Pest control',
+  locksmith: 'Locksmith',
+  handyman: 'Handyman',
+  other: 'Other',
 };

@@ -4,6 +4,7 @@ import type { ExpenseCategory, Expense, ExpenseInput, ExpenseList } from './type
 export interface ExpenseFilter {
   property_id?: string;
   category?: ExpenseCategory | '';
+  vendor_id?: string;
   from?: string;
   to?: string;
 }

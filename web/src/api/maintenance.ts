@@ -5,6 +5,7 @@ export interface MaintenanceFilter {
   property_id?: string;
   status?: MaintenanceStatus | 'active' | '';
   priority?: MaintenancePriority | '';
+  vendor_id?: string;
 }
 
 export const listMaintenance = (filter: MaintenanceFilter = {}) =>

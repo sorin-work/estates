@@ -15,6 +15,8 @@ import RentPage from './pages/RentPage';
 import SettingsPage from './pages/SettingsPage';
 import TenantDetailPage from './pages/TenantDetailPage';
 import TenantsPage from './pages/TenantsPage';
+import VendorDetailPage from './pages/VendorDetailPage';
+import VendorsPage from './pages/VendorsPage';
 
 export default function App() {
   return (
@@ -34,6 +36,8 @@ export default function App() {
           <Route path="leases/:id" element={<LeaseDetailPage />} />
           <Route path="rent" element={<RentPage />} />
           <Route path="maintenance" element={<MaintenancePage />} />
+          <Route path="vendors" element={<VendorsPage />} />
+          <Route path="vendors/:id" element={<VendorDetailPage />} />
           <Route path="expenses" element={<ExpensesPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="*" element={<NotFoundPage />} />

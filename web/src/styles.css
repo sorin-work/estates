@@ -415,6 +415,12 @@ h3 {
   color: var(--brand);
 }
 
+.list-badges {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
 .list.compact li {
   padding: 0.35rem 0;
 }

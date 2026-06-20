@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { createExpense, deleteExpense, listExpenses, updateExpense } from '../api/expenses';
 import { listProperties } from '../api/properties';
 import type { Expense, ExpenseCategory, ExpenseInput } from '../api/types';
@@ -113,7 +113,14 @@ export default function ExpensesPage() {
                     <td>{e.property_name}</td>
                     <td>{expenseCategories[e.category]}</td>
                     <td>
-                      {e.vendor && <strong>{e.vendor} </strong>}
+                      {e.vendor &&
+                        (e.vendor_id ? (
+                          <Link to={`/vendors/${e.vendor_id}`}>
+                            <strong>{e.vendor}</strong>{' '}
+                          </Link>
+                        ) : (
+                          <strong>{e.vendor} </strong>
+                        ))}
                       <span className="muted">{e.description}</span>
                       {e.maintenance_title && <div className="muted small">For: {e.maintenance_title}</div>}
                     </td>

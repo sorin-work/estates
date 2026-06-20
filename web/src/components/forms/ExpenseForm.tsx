@@ -10,6 +10,7 @@ import Field from '../Field';
 import { FormError } from '../States';
 import { useFormSubmit } from '../useFormSubmit';
 import MoneyInput from './MoneyInput';
+import VendorPicker, { type VendorChoice } from './VendorPicker';
 
 export default function ExpenseForm({
   initial,
@@ -26,7 +27,10 @@ export default function ExpenseForm({
   const [category, setCategory] = useState<ExpenseCategory>(initial?.category ?? 'repairs');
   const [amount, setAmount] = useState(centsToInput(initial?.amount_cents ?? 0));
   const [spentOn, setSpentOn] = useState(initial?.spent_on ?? today());
-  const [vendor, setVendor] = useState(initial?.vendor ?? '');
+  const [vendor, setVendor] = useState<VendorChoice>({
+    vendorId: initial?.vendor_id ?? '',
+    name: initial?.vendor ?? '',
+  });
   const [description, setDescription] = useState(initial?.description ?? '');
   const [requestId, setRequestId] = useState(initial?.maintenance_request_id ?? '');
   const properties = useQuery({ queryKey: ['properties'], queryFn: listProperties });
@@ -36,6 +40,15 @@ export default function ExpenseForm({
     enabled: property !== '',
   });
   const { submitting, error, errors, run } = useFormSubmit();
+
+  /** Linking a job also fills in its vendor if none was chosen yet. */
+  function pickRequest(id: string) {
+    setRequestId(id);
+    const request = requests.data?.find((r) => r.id === id);
+    if (request?.vendor_id && !vendor.vendorId && !vendor.name) {
+      setVendor({ vendorId: request.vendor_id, name: request.vendor });
+    }
+  }
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -50,7 +63,8 @@ export default function ExpenseForm({
           category,
           amount_cents: cents ?? 0,
           spent_on: spentOn,
-          vendor,
+          vendor: vendor.name,
+          vendor_id: vendor.vendorId || null,
           description,
         }),
       local,
@@ -101,22 +115,20 @@ export default function ExpenseForm({
         </Field>
       </div>
       <div className="form-row">
-        <Field label="Vendor" error={errors.vendor}>
-          {(id) => <input id={id} value={vendor} onChange={(e) => setVendor(e.target.value)} />}
-        </Field>
-        <Field label="Maintenance request" error={errors.maintenance_request_id}>
-          {(id) => (
-            <select id={id} value={requestId} disabled={!property} onChange={(e) => setRequestId(e.target.value)}>
-              <option value="">None</option>
-              {requests.data?.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.title}
-                </option>
-              ))}
-            </select>
-          )}
-        </Field>
+        <VendorPicker value={vendor} onChange={setVendor} error={errors.vendor_id ?? errors.vendor} />
       </div>
+      <Field label="Maintenance request" error={errors.maintenance_request_id}>
+        {(id) => (
+          <select id={id} value={requestId} disabled={!property} onChange={(e) => pickRequest(e.target.value)}>
+            <option value="">None</option>
+            {requests.data?.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.title}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
       <Field label="Description" error={errors.description}>
         {(id) => <input id={id} value={description} onChange={(e) => setDescription(e.target.value)} />}
       </Field>

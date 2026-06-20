@@ -190,6 +190,7 @@ export interface MaintenanceRequest {
   priority: MaintenancePriority;
   status: MaintenanceStatus;
   vendor: string;
+  vendor_id: string | null;
   reported_on: ISODate;
   completed_on: ISODate | null;
   cost_cents: Cents;
@@ -203,6 +204,7 @@ export interface MaintenanceInput {
   description: string;
   priority: MaintenancePriority;
   vendor: string;
+  vendor_id: string | null;
   reported_on: ISODate;
 }
 
@@ -228,6 +230,7 @@ export interface Expense {
   amount_cents: Cents;
   spent_on: ISODate;
   vendor: string;
+  vendor_id: string | null;
   description: string;
 }
 
@@ -238,6 +241,7 @@ export interface ExpenseInput {
   amount_cents: Cents;
   spent_on: ISODate;
   vendor: string;
+  vendor_id: string | null;
   description: string;
 }
 

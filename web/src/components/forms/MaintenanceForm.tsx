@@ -7,6 +7,7 @@ import { maintenancePriorities, options } from '../../lib/labels';
 import Field from '../Field';
 import { FormError } from '../States';
 import { useFormSubmit } from '../useFormSubmit';
+import VendorPicker from './VendorPicker';
 
 export default function MaintenanceForm({
   initial,
@@ -26,6 +27,7 @@ export default function MaintenanceForm({
     description: initial?.description ?? '',
     priority: initial?.priority ?? 'normal',
     vendor: initial?.vendor ?? '',
+    vendor_id: initial?.vendor_id ?? null,
     reported_on: initial?.reported_on ?? today(),
   });
   const properties = useQuery({ queryKey: ['properties'], queryFn: listProperties });
@@ -116,9 +118,14 @@ export default function MaintenanceForm({
           )}
         </Field>
       </div>
-      <Field label="Vendor" error={errors.vendor} hint="Who is doing the work, if known">
-        {(id) => <input id={id} value={form.vendor} onChange={(e) => setForm({ ...form, vendor: e.target.value })} />}
-      </Field>
+      <div className="form-row">
+        <VendorPicker
+          value={{ vendorId: form.vendor_id ?? '', name: form.vendor }}
+          onChange={(v) => setForm({ ...form, vendor_id: v.vendorId || null, vendor: v.name })}
+          error={errors.vendor_id ?? errors.vendor}
+          hint="Who is doing the work, if known"
+        />
+      </div>
       <Field label="Details" error={errors.description}>
         {(id) => (
           <textarea

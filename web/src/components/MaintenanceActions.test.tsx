@@ -15,6 +15,7 @@ const request: MaintenanceRequest = {
   priority: 'normal',
   status: 'open',
   vendor: '',
+  vendor_id: null,
   reported_on: '2026-03-01',
   completed_on: null,
   cost_cents: 0,

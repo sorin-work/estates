@@ -53,3 +53,44 @@ func TestBillAllAcrossOwners(t *testing.T) {
 		t.Errorf("billed %d ended leases", res.Leases)
 	}
 }
+
+func TestRecurringExpenses(t *testing.T) {
+	ctx := context.Background()
+	st := store.New(testdb.New(t))
+	svc := billing.New(st, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	d := domain.MustParseDate
+
+	u, _ := st.CreateUser(ctx, "a@example.com", "Owner", "hash")
+	p, _ := st.CreateProperty(ctx, u.ID, store.PropertyInput{Name: "P", Kind: "condo", AddressLine1: "1 Main", City: "Bend"})
+	id, err := st.CreateRecurringExpense(ctx, u.ID, store.RecurringExpenseInput{
+		PropertyID: p, Vendor: "First Coastal Bank", Category: "mortgage", AmountCents: 142000,
+		Description: "Mortgage", DayOfMonth: 1, EveryMonths: 1, StartDate: d("2026-01-01"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := svc.GenerateAllRecurring(ctx, d("2026-03-10"))
+	if err != nil || n != 3 {
+		t.Fatalf("first run: %d %v", n, err)
+	}
+	if n, _ := svc.GenerateAllRecurring(ctx, d("2026-03-10")); n != 0 {
+		t.Errorf("rerun added %d", n)
+	}
+
+	// An occurrence deleted by hand is not created again.
+	list, _ := st.ListExpenses(ctx, u.ID, store.ExpenseFilter{})
+	if len(list) != 3 || list[0].RecurringExpenseID == nil || *list[0].RecurringExpenseID != id {
+		t.Fatalf("expenses %+v", list)
+	}
+	if err := st.DeleteExpense(ctx, u.ID, list[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := svc.GenerateAllRecurring(ctx, d("2026-04-02")); n != 1 {
+		t.Errorf("april run added %d, want only april", n)
+	}
+	list, _ = st.ListExpenses(ctx, u.ID, store.ExpenseFilter{})
+	if len(list) != 3 || list[0].SpentOn.String() != "2026-04-01" {
+		t.Errorf("after april %+v", list)
+	}
+}

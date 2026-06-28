@@ -19,6 +19,7 @@ type Expense struct {
 	Vendor               string      `db:"vendor" json:"vendor"`
 	VendorID             *string     `db:"vendor_id" json:"vendor_id"`
 	Description          string      `db:"description" json:"description"`
+	RecurringExpenseID   *string     `db:"recurring_expense_id" json:"recurring_expense_id"`
 	CreatedAt            time.Time   `db:"created_at" json:"created_at"`
 }
 
@@ -50,7 +51,8 @@ type CategoryTotal struct {
 const expenseSelect = `
 	SELECT e.id, e.property_id, p.name AS property_name, e.maintenance_request_id,
 	       m.title AS maintenance_title, e.category, e.amount_cents, e.spent_on,
-	       COALESCE(vd.name, e.vendor) AS vendor, e.vendor_id, e.description, e.created_at
+	       COALESCE(vd.name, e.vendor) AS vendor, e.vendor_id, e.description, e.recurring_expense_id,
+	       e.created_at
 	  FROM expenses e
 	  JOIN properties p ON p.id = e.property_id AND p.owner_id = $1
 	  LEFT JOIN maintenance_requests m ON m.id = e.maintenance_request_id

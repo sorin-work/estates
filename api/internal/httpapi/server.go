@@ -29,6 +29,7 @@ type Store interface {
 	expenseStore
 	depositStore
 	vendorStore
+	recurringStore
 	dashboardStore
 }
 
@@ -37,6 +38,7 @@ type Billing interface {
 	GenerateRent(ctx context.Context, l store.Lease, asOf domain.Date) (int, error)
 	BillOwner(ctx context.Context, ownerID string, asOf domain.Date) (billing.Result, error)
 	Balances(ctx context.Context, ownerID string, asOf domain.Date) ([]billing.Balance, error)
+	GenerateRecurring(ctx context.Context, r store.RecurringExpense, asOf domain.Date) (int, error)
 }
 
 type Server struct {
@@ -113,6 +115,7 @@ func (s *Server) Handler() http.Handler {
 			r.Route("/expenses", s.expenseRoutes)
 			r.Route("/deposit-transactions", s.depositRoutes)
 			r.Route("/vendors", s.vendorRoutes)
+			r.Route("/recurring-expenses", s.recurringRoutes)
 			r.Get("/dashboard", s.handle(s.dashboard))
 		})
 	})

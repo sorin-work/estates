@@ -23,6 +23,8 @@ type Store interface {
 	InsertLateFee(ctx context.Context, leaseID, rentChargeID string, amount int64, due domain.Date) (bool, error)
 	LateFeeParents(ctx context.Context, leaseID string) (map[string]bool, error)
 	LedgerEntries(ctx context.Context, ownerID, leaseID string) (map[string]*store.LedgerEntries, error)
+	DueRecurringExpenses(ctx context.Context, asOf domain.Date) ([]store.RecurringExpense, error)
+	InsertRecurringOccurrences(ctx context.Context, r store.RecurringExpense, dates []domain.Date) (int, error)
 }
 
 type Service struct {
@@ -39,6 +41,8 @@ type Result struct {
 	Leases   int `json:"leases"`
 	Rent     int `json:"rent_charges"`
 	LateFees int `json:"late_fees"`
+	// Expenses counts expenses created from recurring expenses.
+	Expenses int `json:"expenses,omitempty"`
 }
 
 // GenerateRent adds any missing rent charges for the lease up to asOf. It
@@ -139,15 +143,55 @@ func (s *Service) BillOwner(ctx context.Context, ownerID string, asOf domain.Dat
 	return total, nil
 }
 
-// Run bills all leases now and then on every tick until ctx is cancelled.
+// GenerateRecurring creates the expenses a recurring expense has fallen due
+// for up to asOf, skipping occurrences it already created.
+func (s *Service) GenerateRecurring(ctx context.Context, r store.RecurringExpense, asOf domain.Date) (int, error) {
+	var after domain.Date
+	if r.GeneratedThrough != nil {
+		after = *r.GeneratedThrough
+	}
+	added, err := s.store.InsertRecurringOccurrences(ctx, r, r.Recurrence().Occurrences(after, asOf))
+	if err != nil {
+		return 0, fmt.Errorf("recurring expense %s: %w", r.ID, err)
+	}
+	return added, nil
+}
+
+// GenerateAllRecurring runs GenerateRecurring for every owner's recurring
+// expenses. A failure on one is logged and does not stop the others.
+func (s *Service) GenerateAllRecurring(ctx context.Context, asOf domain.Date) (int, error) {
+	due, err := s.store.DueRecurringExpenses(ctx, asOf)
+	if err != nil {
+		return 0, err
+	}
+	total := 0
+	for _, r := range due {
+		n, err := s.GenerateRecurring(ctx, r, asOf)
+		if err != nil {
+			s.log.Error("recurring expense failed", "recurring_expense_id", r.ID, "err", err)
+			continue
+		}
+		total += n
+	}
+	return total, nil
+}
+
+// Run bills all leases and creates recurring expenses now and then on every
+// tick until ctx is cancelled.
 func (s *Service) Run(ctx context.Context, every time.Duration) {
 	run := func() {
-		res, err := s.BillAll(ctx, domain.Today())
+		today := domain.Today()
+		res, err := s.BillAll(ctx, today)
 		if err != nil {
 			s.log.Error("billing run failed", "err", err)
 			return
 		}
-		s.log.Info("billing run finished", "leases", res.Leases, "rent_charges", res.Rent, "late_fees", res.LateFees)
+		res.Expenses, err = s.GenerateAllRecurring(ctx, today)
+		if err != nil {
+			s.log.Error("recurring expenses failed", "err", err)
+		}
+		s.log.Info("billing run finished", "leases", res.Leases, "rent_charges", res.Rent,
+			"late_fees", res.LateFees, "expenses", res.Expenses)
 	}
 	run()
 	t := time.NewTicker(every)

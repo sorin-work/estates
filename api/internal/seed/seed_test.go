@@ -64,6 +64,19 @@ func TestDemoSeed(t *testing.T) {
 		}
 	}
 
+	recurring, err := st.ListRecurringExpenses(ctx, u.ID, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(recurring) != 4 {
+		t.Errorf("%d recurring expenses", len(recurring))
+	}
+	for _, r := range recurring {
+		if r.GeneratedThrough == nil {
+			t.Errorf("recurring %s was never generated", r.Description)
+		}
+	}
+
 	vendors, err := st.ListVendors(ctx, u.ID, "")
 	if err != nil {
 		t.Fatal(err)

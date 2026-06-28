@@ -339,14 +339,35 @@ func (s *seeder) expenses(ctx context.Context, props map[string]string) error {
 		return base + base*int64(s.rnd.IntN(2*pct+1)-pct)/100
 	}
 
+	// Fixed monthly costs are recurring expenses, created by the billing
+	// service for the last twelve months.
+	recurring := []store.RecurringExpenseInput{
+		{PropertyID: props["harbor"], Vendor: "First Coastal Bank", Category: "mortgage", AmountCents: 685000, Description: "Mortgage payment", DayOfMonth: 1},
+		{PropertyID: props["birch"], Vendor: "First Coastal Bank", Category: "mortgage", AmountCents: 142000, Description: "Mortgage payment", DayOfMonth: 1},
+		{PropertyID: props["harbor"], Vendor: "GreenLeaf Landscaping", Category: "maintenance", AmountCents: 18000, Description: "Grounds and snow service", DayOfMonth: 20},
+		{PropertyID: props["riverside"], Vendor: "Riverside Condo Association", Category: "hoa", AmountCents: 38500, Description: "HOA dues", DayOfMonth: 5},
+	}
+	for _, in := range recurring {
+		in.VendorID = s.vendorID(in.Vendor)
+		in.EveryMonths = 1
+		in.StartDate = s.monthsAgo(11, 1)
+		id, err := s.st.CreateRecurringExpense(ctx, s.owner, in)
+		if err != nil {
+			return err
+		}
+		re, err := s.st.GetRecurringExpense(ctx, s.owner, id)
+		if err != nil {
+			return err
+		}
+		if _, err := s.bill.GenerateRecurring(ctx, re, s.today); err != nil {
+			return err
+		}
+	}
+
 	for i := 11; i >= 0; i-- {
 		steps := []error{
-			add("harbor", "mortgage", 685000, s.monthsAgo(i, 1), "First Coastal Bank", "Mortgage payment"),
-			add("birch", "mortgage", 142000, s.monthsAgo(i, 1), "First Coastal Bank", "Mortgage payment"),
 			add("harbor", "utilities", jitter(41000, 15), s.monthsAgo(i, 12), "City Water & Sewer", "Water and sewer, common meter"),
 			add("maple", "utilities", jitter(16500, 20), s.monthsAgo(i, 12), "City Water & Sewer", "Water and sewer"),
-			add("harbor", "maintenance", 18000, s.monthsAgo(i, 20), "GreenLeaf Landscaping", "Grounds and snow service"),
-			add("riverside", "hoa", 38500, s.monthsAgo(i, 5), "Riverside Condo Association", "HOA dues"),
 		}
 		if err := errors.Join(steps...); err != nil {
 			return err

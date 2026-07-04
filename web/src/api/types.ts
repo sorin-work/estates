@@ -232,6 +232,7 @@ export interface Expense {
   vendor: string;
   vendor_id: string | null;
   description: string;
+  recurring_expense_id: string | null;
 }
 
 export interface ExpenseInput {
@@ -339,4 +340,36 @@ export interface VendorInput {
   phone: string;
   email: string;
   notes: string;
+}
+
+export type RecurrenceMonths = 1 | 3 | 6 | 12;
+
+export interface RecurringExpense {
+  id: string;
+  property_id: string;
+  property_name: string;
+  vendor_id: string | null;
+  vendor: string;
+  category: ExpenseCategory;
+  amount_cents: Cents;
+  description: string;
+  day_of_month: number;
+  every_months: RecurrenceMonths;
+  start_date: ISODate;
+  end_date: ISODate | null;
+  generated_through: ISODate | null;
+  next_on: ISODate | null;
+}
+
+export interface RecurringExpenseInput {
+  property_id: string;
+  vendor_id: string | null;
+  vendor: string;
+  category: ExpenseCategory;
+  amount_cents: Cents;
+  description: string;
+  day_of_month: number;
+  every_months: RecurrenceMonths;
+  start_date: ISODate;
+  end_date: ISODate | null;
 }

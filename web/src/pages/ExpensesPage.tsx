@@ -7,6 +7,7 @@ import type { Expense, ExpenseCategory, ExpenseInput } from '../api/types';
 import ExpenseForm from '../components/forms/ExpenseForm';
 import Modal from '../components/Modal';
 import PageHeader from '../components/PageHeader';
+import RecurringExpenses from '../components/RecurringExpenses';
 import { EmptyState, ErrorState, Loading } from '../components/States';
 import { formatDate, today } from '../lib/dates';
 import { expenseCategories, options } from '../lib/labels';
@@ -27,7 +28,7 @@ export default function ExpensesPage() {
   const properties = useQuery({ queryKey: ['properties'], queryFn: listProperties });
 
   const refresh = () => {
-    for (const key of ['expenses', 'maintenance', 'dashboard']) {
+    for (const key of ['expenses', 'recurring-expenses', 'maintenance', 'dashboard']) {
       void queryClient.invalidateQueries({ queryKey: [key] });
     }
   };
@@ -123,6 +124,7 @@ export default function ExpensesPage() {
                         ))}
                       <span className="muted">{e.description}</span>
                       {e.maintenance_title && <div className="muted small">For: {e.maintenance_title}</div>}
+                      {e.recurring_expense_id && <div className="muted small">Recurring</div>}
                     </td>
                     <td className="num">{formatMoney(e.amount_cents)}</td>
                     <td className="row-actions">
@@ -163,6 +165,7 @@ export default function ExpensesPage() {
           </aside>
         </div>
       )}
+      <RecurringExpenses propertyId={propertyId} />
       {form && (
         <Modal title={form === 'new' ? 'Add expense' : 'Edit expense'} onClose={() => setForm(null)}>
           <ExpenseForm

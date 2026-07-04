@@ -8,6 +8,7 @@ import type {
   MaintenanceStatus,
   PaymentMethod,
   PropertyKind,
+  RecurrenceMonths,
   VendorTrade,
 } from '../api/types';
 
@@ -125,4 +126,11 @@ export const vendorTrades: Record<VendorTrade, string> = {
   locksmith: 'Locksmith',
   handyman: 'Handyman',
   other: 'Other',
+};
+
+export const recurrences: Record<RecurrenceMonths, string> = {
+  1: 'Every month',
+  3: 'Every 3 months',
+  6: 'Every 6 months',
+  12: 'Every year',
 };

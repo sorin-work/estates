@@ -9,6 +9,30 @@ type RentTerms struct {
 	// DueDay is the day of the month rent is due, 1-31. Months shorter than
 	// DueDay use their last day instead, so 31 means "end of the month".
 	DueDay int
+	// Changes are rent increases (or decreases) during the lease, in date
+	// order. See RentOn.
+	Changes []RentChange
+}
+
+// RentChange sets a new rent from a date.
+type RentChange struct {
+	ID            string `json:"id"`
+	EffectiveDate Date   `json:"effective_date"`
+	RentCents     int64  `json:"rent_cents"`
+	Notes         string `json:"notes"`
+}
+
+// RentOn returns the monthly rent in force on d: the latest change on or
+// before d, or the lease's starting rent.
+func (t RentTerms) RentOn(d Date) int64 {
+	rent := t.RentCents
+	for _, c := range t.Changes {
+		if c.EffectiveDate.After(d) {
+			break
+		}
+		rent = c.RentCents
+	}
+	return rent
 }
 
 // ScheduledRent is one rent charge a lease should produce.
@@ -38,7 +62,9 @@ func nextDueDate(d Date, dueDay int) Date {
 // through. Periods run from one due date to the day before the next. A first
 // period that starts between due dates, and a last period cut short by the
 // lease end, are prorated by the number of days covered. The first charge is
-// due on the lease start date.
+// due on the lease start date. Each period is charged at the rent in force
+// on its first day, so a change that takes effect mid-period applies from
+// the next one.
 func RentSchedule(t RentTerms, through Date) []ScheduledRent {
 	if t.Start.IsZero() || t.End.IsZero() || t.End.Before(t.Start) || t.RentCents <= 0 || t.DueDay < 1 {
 		return nil
@@ -54,14 +80,15 @@ func RentSchedule(t RentTerms, through Date) []ScheduledRent {
 		periodEnd := MinDate(next.AddDays(-1), t.End)
 		covered := periodStart.DaysUntil(periodEnd) + 1
 
+		rent := t.RentOn(periodStart)
 		charge := ScheduledRent{
 			DueDate:     periodStart,
 			PeriodStart: periodStart,
 			PeriodEnd:   periodEnd,
-			AmountCents: t.RentCents,
+			AmountCents: rent,
 		}
 		if covered < fullDays {
-			charge.AmountCents = prorate(t.RentCents, covered, fullDays)
+			charge.AmountCents = prorate(rent, covered, fullDays)
 			charge.Prorated = true
 		}
 		out = append(out, charge)

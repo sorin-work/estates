@@ -116,3 +116,39 @@ func TestProrateRoundsHalfUp(t *testing.T) {
 		t.Errorf("got %d", got)
 	}
 }
+
+func TestRentScheduleAppliesRentChanges(t *testing.T) {
+	terms := RentTerms{
+		Start: MustParseDate("2026-01-01"), End: MustParseDate("2026-12-31"), RentCents: 100000, DueDay: 1,
+		Changes: []RentChange{
+			{EffectiveDate: MustParseDate("2026-03-01"), RentCents: 105000},
+			// Mid-period: April is still charged at the March rent.
+			{EffectiveDate: MustParseDate("2026-04-10"), RentCents: 110000},
+		},
+	}
+	got := RentSchedule(terms, MustParseDate("2026-05-01"))
+	want := []int64{100000, 100000, 105000, 105000, 110000}
+	if len(got) != len(want) {
+		t.Fatalf("got %d charges", len(got))
+	}
+	for i, r := range got {
+		if r.AmountCents != want[i] {
+			t.Errorf("%s: %d, want %d", r.DueDate, r.AmountCents, want[i])
+		}
+	}
+	if terms.RentOn(MustParseDate("2025-12-31")) != 100000 || terms.RentOn(MustParseDate("2026-04-10")) != 110000 {
+		t.Error("RentOn")
+	}
+}
+
+func TestRentChangeProratesTheLastPeriod(t *testing.T) {
+	terms := RentTerms{
+		Start: MustParseDate("2026-01-01"), End: MustParseDate("2026-02-14"), RentCents: 100000, DueDay: 1,
+		Changes: []RentChange{{EffectiveDate: MustParseDate("2026-02-01"), RentCents: 112000}},
+	}
+	got := RentSchedule(terms, MustParseDate("2026-02-14"))
+	// 14 of 28 days at the new rent.
+	if len(got) != 2 || got[1].AmountCents != 56000 || !got[1].Prorated {
+		t.Fatalf("got %+v", got)
+	}
+}

@@ -30,6 +30,7 @@ type Store interface {
 	depositStore
 	vendorStore
 	recurringStore
+	renewalStore
 	dashboardStore
 }
 
@@ -116,6 +117,7 @@ func (s *Server) Handler() http.Handler {
 			r.Route("/deposit-transactions", s.depositRoutes)
 			r.Route("/vendors", s.vendorRoutes)
 			r.Route("/recurring-expenses", s.recurringRoutes)
+			r.Route("/rent-changes", s.rentChangeRoutes)
 			r.Get("/dashboard", s.handle(s.dashboard))
 		})
 	})

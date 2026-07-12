@@ -35,6 +35,8 @@ func (s *Server) leaseRoutes(r chi.Router) {
 	r.Get("/{id}/ledger", s.handle(s.leaseLedger))
 	r.Post("/{id}/charges", s.handle(s.createCharge))
 	r.Post("/{id}/payments", s.handle(s.createPayment))
+	r.Post("/{id}/rent-changes", s.handle(s.addRentChange))
+	r.Post("/{id}/renew", s.handle(s.renewLease))
 	r.Get("/{id}/deposit", s.handle(s.leaseDeposit))
 	r.Post("/{id}/deposit", s.handle(s.createDeposit))
 }
@@ -45,6 +47,7 @@ func (s *Server) chargeRoutes(r chi.Router) {
 
 func (s *Server) withStatus(l store.Lease) store.Lease {
 	l.Status = domain.LeaseStatus(l.StartDate, l.EndDate, l.TerminatedOn, s.today())
+	l.CurrentRentCents = l.Terms().RentOn(s.today())
 	return l
 }
 

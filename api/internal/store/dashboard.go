@@ -65,12 +65,13 @@ func (s *Store) MonthlyTotals(ctx context.Context, ownerID string, from, to doma
 }
 
 // ExpiringLeases returns leases in force on asOf whose last day falls within
-// the next `days` days, soonest first.
+// the next `days` days, soonest first. Leases already renewed are left out.
 func (s *Store) ExpiringLeases(ctx context.Context, ownerID string, asOf domain.Date, days int) ([]Lease, error) {
 	rows, err := s.pool.Query(ctx, leaseSelect+`
 		WHERE p.owner_id = $1
 		  AND l.start_date <= $2
 		  AND LEAST(l.end_date, COALESCE(l.terminated_on, l.end_date)) BETWEEN $2 AND $2::date + $3::int
+		  AND NOT EXISTS (SELECT 1 FROM leases r WHERE r.renewed_from_id = l.id)
 		ORDER BY LEAST(l.end_date, COALESCE(l.terminated_on, l.end_date))`, ownerID, asOf, days)
 	return collectAll[Lease](rows, err)
 }

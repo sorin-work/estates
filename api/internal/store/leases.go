@@ -27,8 +27,16 @@ type Lease struct {
 	TerminatedOn *domain.Date `db:"terminated_on" json:"terminated_on"`
 	Notes        string       `db:"notes" json:"notes"`
 	CreatedAt    time.Time    `db:"created_at" json:"created_at"`
+	// RentChanges are increases during the lease, in date order.
+	RentChanges []domain.RentChange `db:"rent_changes" json:"rent_changes"`
+	// RenewedFromID is the lease this one renews; RenewedByID the renewal
+	// that follows it.
+	RenewedFromID *string `db:"renewed_from_id" json:"renewed_from_id"`
+	RenewedByID   *string `db:"renewed_by_id" json:"renewed_by_id"`
 	// Status is derived from the dates; see domain.LeaseStatus.
 	Status string `db:"-" json:"status"`
+	// CurrentRentCents is the rent in force today.
+	CurrentRentCents int64 `db:"-" json:"current_rent_cents"`
 }
 
 // Terms returns the rent terms used to build the rent schedule.
@@ -38,6 +46,7 @@ func (l Lease) Terms() domain.RentTerms {
 		End:       domain.EffectiveEnd(l.EndDate, l.TerminatedOn),
 		RentCents: l.RentCents,
 		DueDay:    l.DueDay,
+		Changes:   l.RentChanges,
 	}
 }
 
@@ -64,7 +73,12 @@ const leaseSelect = `
 	SELECT l.id, l.unit_id, u.label AS unit_label, p.id AS property_id, p.name AS property_name,
 	       l.tenant_id, t.first_name || ' ' || t.last_name AS tenant_name,
 	       l.start_date, l.end_date, l.rent_cents, l.deposit_cents, l.due_day, l.grace_days,
-	       l.late_fee_cents, l.terminated_on, l.notes, l.created_at
+	       l.late_fee_cents, l.terminated_on, l.notes, l.created_at, l.renewed_from_id,
+	       (SELECT r.id FROM leases r WHERE r.renewed_from_id = l.id) AS renewed_by_id,
+	       COALESCE((SELECT jsonb_agg(jsonb_build_object(
+	                    'id', rc.id, 'effective_date', rc.effective_date, 'rent_cents', rc.rent_cents, 'notes', rc.notes)
+	                  ORDER BY rc.effective_date)
+	                   FROM rent_changes rc WHERE rc.lease_id = l.id), '[]') AS rent_changes
 	  FROM leases l
 	  JOIN units u ON u.id = l.unit_id
 	  JOIN properties p ON p.id = u.property_id
@@ -178,7 +192,7 @@ func (s *Store) UpdateLease(ctx context.Context, ownerID, id string, in LeaseInp
 		// added again by the billing service.
 		updated := Lease{
 			StartDate: in.StartDate, EndDate: in.EndDate, RentCents: in.RentCents,
-			DueDay: in.DueDay, TerminatedOn: old.TerminatedOn,
+			DueDay: in.DueDay, TerminatedOn: old.TerminatedOn, RentChanges: old.RentChanges,
 		}
 		return syncRent(ctx, tx, id, updated.Terms())
 	})

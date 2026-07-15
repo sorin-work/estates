@@ -64,6 +64,19 @@ func TestDemoSeed(t *testing.T) {
 		}
 	}
 
+	leases, err := st.ListLeases(ctx, u.ID, store.LeaseFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var increased, renewed bool
+	for _, l := range leases {
+		increased = increased || len(l.RentChanges) > 0
+		renewed = renewed || l.RenewedFromID != nil
+	}
+	if !increased || !renewed {
+		t.Errorf("expected a rent increase (%v) and a renewal (%v)", increased, renewed)
+	}
+
 	recurring, err := st.ListRecurringExpenses(ctx, u.ID, "")
 	if err != nil {
 		t.Fatal(err)

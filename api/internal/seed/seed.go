@@ -74,6 +74,10 @@ type leaseSpec struct {
 	lateFee                   int64
 	payer                     payer
 	terminated                bool
+	// increase is the rent from the second year of the lease, if it went up.
+	increase int64
+	// renewal is the rent of an already signed one year renewal.
+	renewal int64
 }
 
 func (s *seeder) run(ctx context.Context) error {
@@ -174,6 +178,13 @@ func (s *seeder) lease(ctx context.Context, spec leaseSpec, unitID, tenantID str
 			return err
 		}
 	}
+	if spec.increase > 0 {
+		if _, err := s.st.AddRentChange(ctx, s.owner, id, store.RentChangeInput{
+			EffectiveDate: start.AddMonths(12), RentCents: spec.increase, Notes: "Annual increase",
+		}); err != nil {
+			return err
+		}
+	}
 
 	l, err := s.st.GetLease(ctx, s.owner, id)
 	if err != nil {
@@ -231,7 +242,14 @@ func (s *seeder) lease(ctx context.Context, spec leaseSpec, unitID, tenantID str
 	}
 
 	// Late fees for anything still overdue today.
-	_, err = s.bill.BillLease(ctx, l, s.today)
+	if _, err := s.bill.BillLease(ctx, l, s.today); err != nil {
+		return err
+	}
+	if spec.renewal > 0 {
+		_, err = s.st.RenewLease(ctx, s.owner, id, store.RenewalInput{
+			EndDate: end.AddMonths(12), RentCents: spec.renewal, Notes: "Renewed for another year.",
+		})
+	}
 	return err
 }
 

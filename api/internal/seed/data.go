@@ -73,9 +73,9 @@ var demoTenants = []store.TenantInput{
 }
 
 var demoLeases = []leaseSpec{
-	{unit: "maple/A", tenant: "Maria Gonzalez", startMonths: 20, lengthMonths: 24, startDay: 1, rent: 180000, deposit: 180000, dueDay: 1, grace: 5, lateFee: 7500, payer: onTime},
+	{unit: "maple/A", tenant: "Maria Gonzalez", startMonths: 20, lengthMonths: 24, startDay: 1, rent: 180000, deposit: 180000, dueDay: 1, grace: 5, lateFee: 7500, payer: onTime, increase: 185400},
 	{unit: "maple/B", tenant: "James Whitaker", startMonths: 10, lengthMonths: 12, startDay: 15, rent: 182500, deposit: 182500, dueDay: 1, grace: 5, lateFee: 7500, payer: late},
-	{unit: "harbor/101", tenant: "Priya Raman", startMonths: 11, lengthMonths: 12, startDay: 1, rent: 135000, deposit: 135000, dueDay: 1, grace: 3, lateFee: 5000, payer: onTime},
+	{unit: "harbor/101", tenant: "Priya Raman", startMonths: 11, lengthMonths: 12, startDay: 1, rent: 135000, deposit: 135000, dueDay: 1, grace: 3, lateFee: 5000, payer: onTime, renewal: 139000},
 	{unit: "harbor/102", tenant: "Tom Becker", startMonths: 8, lengthMonths: 12, startDay: 1, rent: 139500, deposit: 100000, dueDay: 1, grace: 3, lateFee: 5000, payer: behind},
 	{unit: "harbor/103", tenant: "Aisha Okafor", startMonths: 14, lengthMonths: 16, startDay: 1, rent: 162500, deposit: 162500, dueDay: 1, grace: 3, lateFee: 5000, payer: usuallyOK},
 	{unit: "harbor/201", tenant: "Daniel Kim", startMonths: 5, lengthMonths: 12, startDay: 10, rent: 145000, deposit: 145000, dueDay: 1, grace: 3, lateFee: 5000, payer: onTime},

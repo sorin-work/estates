@@ -3,23 +3,28 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
   addCharge,
+  addRentChange,
   deleteCharge,
   deleteDepositTransaction,
   deleteLease,
+  deleteRentChange,
   getDeposit,
   getLease,
   getLedger,
   recordDeposit,
   recordPayment,
+  renewLease,
   terminateLease,
   updateLease,
 } from '../api/leases';
 import { deletePayment } from '../api/rent';
-import type { ChargeInput, DepositInput, LeaseInput, PaymentInput } from '../api/types';
+import type { ChargeInput, DepositInput, LeaseInput, PaymentInput, RenewalInput, RentChangeInput } from '../api/types';
 import ChargeForm from '../components/forms/ChargeForm';
 import DepositForm from '../components/forms/DepositForm';
 import LeaseForm from '../components/forms/LeaseForm';
 import PaymentForm from '../components/forms/PaymentForm';
+import RenewalForm from '../components/forms/RenewalForm';
+import RentChangeForm, { percentChange } from '../components/forms/RentChangeForm';
 import Modal from '../components/Modal';
 import PageHeader from '../components/PageHeader';
 import StatCard from '../components/StatCard';
@@ -29,7 +34,7 @@ import { formatDate, today } from '../lib/dates';
 import { chargeKinds, depositKinds, paymentMethods } from '../lib/labels';
 import { formatMoney } from '../lib/money';
 
-type Dialog = 'edit' | 'payment' | 'charge' | 'terminate' | 'deposit' | null;
+type Dialog = 'edit' | 'payment' | 'charge' | 'terminate' | 'deposit' | 'rent-change' | 'renew' | null;
 
 function ordinal(n: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
@@ -97,6 +102,22 @@ export default function LeaseDetailPage() {
       close();
     },
   });
+  const changeRent = useMutation({
+    mutationFn: (input: RentChangeInput) => addRentChange(id, input),
+    onSuccess: () => {
+      refresh();
+      close();
+    },
+  });
+  const removeRentChange = useMutation({ mutationFn: deleteRentChange, onSuccess: refresh });
+  const renew = useMutation({
+    mutationFn: (input: RenewalInput) => renewLease(id, input),
+    onSuccess: (next) => {
+      refresh();
+      close();
+      navigate(`/leases/${next.id}`);
+    },
+  });
   const removeDeposit = useMutation({ mutationFn: deleteDepositTransaction, onSuccess: refresh });
   const removeCharge = useMutation({ mutationFn: deleteCharge, onSuccess: refresh });
   const removePayment = useMutation({ mutationFn: deletePayment, onSuccess: refresh });
@@ -120,6 +141,18 @@ export default function LeaseDetailPage() {
             <Link to={`/properties/${l.property_id}`}>{l.property_name}</Link> · Unit {l.unit_label} ·{' '}
             {formatDate(l.start_date)} – {formatDate(l.end_date)}
             {l.terminated_on && ` (ended early on ${formatDate(l.terminated_on)})`}
+            {l.renewed_from_id && (
+              <>
+                {' · '}
+                <Link to={`/leases/${l.renewed_from_id}`}>renews an earlier lease</Link>
+              </>
+            )}
+            {l.renewed_by_id && (
+              <>
+                {' · '}
+                <Link to={`/leases/${l.renewed_by_id}`}>renewed</Link>
+              </>
+            )}
           </>
         }
         actions={
@@ -133,6 +166,11 @@ export default function LeaseDetailPage() {
             <button type="button" className="button secondary" onClick={() => setDialog('edit')}>
               Edit
             </button>
+            {!l.renewed_by_id && !l.terminated_on && l.status !== 'upcoming' && (
+              <button type="button" className="button secondary" onClick={() => setDialog('renew')}>
+                Renew
+              </button>
+            )}
             {(l.status === 'active' || l.status === 'upcoming') && (
               <button type="button" className="button secondary" onClick={() => setDialog('terminate')}>
                 End early
@@ -159,7 +197,7 @@ export default function LeaseDetailPage() {
         />
         <StatCard
           label="Rent"
-          value={formatMoney(l.rent_cents)}
+          value={formatMoney(l.current_rent_cents)}
           detail={`due on the ${ordinal(l.due_day)}, ${l.grace_days} days grace`}
         />
         <StatCard
@@ -269,6 +307,63 @@ export default function LeaseDetailPage() {
 
       <section className="card">
         <div className="card-header">
+          <h2>Rent changes</h2>
+          {l.status !== 'ended' && l.status !== 'terminated' && (
+            <button type="button" className="link-button" onClick={() => setDialog('rent-change')}>
+              Change rent
+            </button>
+          )}
+        </div>
+        {l.rent_changes.length === 0 ? (
+          <p className="muted">Rent has been {formatMoney(l.rent_cents)} since the lease started.</p>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>From</th>
+                <th>Notes</th>
+                <th className="num">Rent</th>
+                <th className="num">Change</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>{formatDate(l.start_date)}</td>
+                <td className="muted">Starting rent</td>
+                <td className="num">{formatMoney(l.rent_cents)}</td>
+                <td />
+                <td />
+              </tr>
+              {l.rent_changes.map((c, i) => (
+                <tr key={c.id}>
+                  <td>{formatDate(c.effective_date)}</td>
+                  <td>{c.notes || '—'}</td>
+                  <td className="num">{formatMoney(c.rent_cents)}</td>
+                  <td className="num">
+                    {percentChange(i === 0 ? l.rent_cents : (l.rent_changes[i - 1]?.rent_cents ?? 0), c.rent_cents)}
+                  </td>
+                  <td className="row-actions">
+                    <button
+                      type="button"
+                      className="link-button danger"
+                      onClick={() => {
+                        if (confirm('Remove this rent change? Rent charged since is put back to the earlier amount.'))
+                          removeRentChange.mutate(c.id);
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      <section className="card">
+        <div className="card-header">
           <h2>Deposit</h2>
           {dep && (
             <button type="button" className="link-button" onClick={() => setDialog('deposit')}>
@@ -351,6 +446,16 @@ export default function LeaseDetailPage() {
       {dialog === 'charge' && (
         <Modal title="Add charge" onClose={close}>
           <ChargeForm onSubmit={(input) => charge.mutateAsync(input)} onCancel={close} />
+        </Modal>
+      )}
+      {dialog === 'rent-change' && (
+        <Modal title="Change rent" onClose={close}>
+          <RentChangeForm lease={l} onSubmit={(input) => changeRent.mutateAsync(input)} onCancel={close} />
+        </Modal>
+      )}
+      {dialog === 'renew' && (
+        <Modal title="Renew lease" onClose={close}>
+          <RenewalForm lease={l} onSubmit={(input) => renew.mutateAsync(input)} onCancel={close} />
         </Modal>
       )}
       {dialog === 'deposit' && dep && (

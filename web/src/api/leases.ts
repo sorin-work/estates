@@ -9,6 +9,8 @@ import type {
   Ledger,
   Payment,
   PaymentInput,
+  RenewalInput,
+  RentChangeInput,
 } from './types';
 
 export interface LeaseFilter {
@@ -39,3 +41,9 @@ export const getDeposit = (leaseId: string) => api<Deposit>(`/leases/${leaseId}/
 export const recordDeposit = (leaseId: string, input: DepositInput) =>
   api<Deposit>(`/leases/${leaseId}/deposit`, { method: 'POST', body: input });
 export const deleteDepositTransaction = (id: string) => api<void>(`/deposit-transactions/${id}`, { method: 'DELETE' });
+
+export const addRentChange = (leaseId: string, input: RentChangeInput) =>
+  api<Lease>(`/leases/${leaseId}/rent-changes`, { method: 'POST', body: input });
+export const deleteRentChange = (id: string) => api<void>(`/rent-changes/${id}`, { method: 'DELETE' });
+export const renewLease = (leaseId: string, input: RenewalInput) =>
+  api<Lease>(`/leases/${leaseId}/renew`, { method: 'POST', body: input });

@@ -86,6 +86,26 @@ export interface Lease {
   terminated_on: ISODate | null;
   notes: string;
   status: LeaseStatus;
+  /** Rent in force today, after any rent changes. */
+  current_rent_cents: Cents;
+  rent_changes: RentChange[];
+  renewed_from_id: string | null;
+  renewed_by_id: string | null;
+}
+
+export interface RentChange {
+  id: string;
+  effective_date: ISODate;
+  rent_cents: Cents;
+  notes: string;
+}
+
+export type RentChangeInput = Omit<RentChange, 'id'>;
+
+export interface RenewalInput {
+  end_date: ISODate;
+  rent_cents: Cents;
+  notes: string;
 }
 
 export type LeaseInput = Pick<

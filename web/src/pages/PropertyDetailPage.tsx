@@ -251,7 +251,7 @@ export default function PropertyDetailPage() {
                   <td>
                     {formatDate(l.start_date)} – {formatDate(l.terminated_on ?? l.end_date)}
                   </td>
-                  <td className="num">{formatMoney(l.rent_cents)}</td>
+                  <td className="num">{formatMoney(l.current_rent_cents)}</td>
                   <td>
                     <LeaseStatusBadge status={l.status} />
                   </td>

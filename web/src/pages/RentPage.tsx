@@ -88,7 +88,7 @@ export default function RentPage() {
                   <td>
                     {b.lease.property_name} · {b.lease.unit_label}
                   </td>
-                  <td className="num">{formatMoney(b.lease.rent_cents)}</td>
+                  <td className="num">{formatMoney(b.lease.current_rent_cents)}</td>
                   <td className="num">
                     {b.balance_cents < 0 ? (
                       <span className="text-good">{formatMoney(-b.balance_cents)} credit</span>

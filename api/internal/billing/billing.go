@@ -230,6 +230,7 @@ func (s *Service) Balances(ctx context.Context, ownerID string, asOf domain.Date
 	out := []Balance{}
 	for _, l := range leases {
 		l.Status = domain.LeaseStatus(l.StartDate, l.EndDate, l.TerminatedOn, asOf)
+		l.CurrentRentCents = l.Terms().RentOn(asOf)
 		e := entries[l.ID]
 		if e == nil {
 			e = &store.LedgerEntries{}

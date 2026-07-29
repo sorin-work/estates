@@ -94,3 +94,32 @@ func TestRecurringExpenses(t *testing.T) {
 		t.Errorf("after april %+v", list)
 	}
 }
+
+func TestBalancesShowTheRentInForce(t *testing.T) {
+	ctx := context.Background()
+	st := store.New(testdb.New(t))
+	svc := billing.New(st, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	d := domain.MustParseDate
+
+	u, _ := st.CreateUser(ctx, "a@example.com", "Owner", "hash")
+	p, _ := st.CreateProperty(ctx, u.ID, store.PropertyInput{Name: "P", Kind: "condo", AddressLine1: "1 Main", City: "Bend"})
+	unit, _ := st.CreateUnit(ctx, u.ID, p, store.UnitInput{Label: "1"})
+	tenant, _ := st.CreateTenant(ctx, u.ID, store.TenantInput{FirstName: "T", LastName: "T"})
+	id, err := st.CreateLease(ctx, u.ID, store.LeaseInput{
+		UnitID: unit, TenantID: tenant, StartDate: d("2026-01-01"), EndDate: d("2026-12-31"), RentCents: 100000, DueDay: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.AddRentChange(ctx, u.ID, id, store.RentChangeInput{EffectiveDate: d("2026-06-01"), RentCents: 103000}); err != nil {
+		t.Fatal(err)
+	}
+
+	balances, err := svc.Balances(ctx, u.ID, d("2026-07-10"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(balances) != 1 || balances[0].Lease.CurrentRentCents != 103000 {
+		t.Errorf("balances %+v", balances)
+	}
+}

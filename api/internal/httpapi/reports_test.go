@@ -58,3 +58,30 @@ func TestProfitLoss(t *testing.T) {
 		t.Errorf("csv:\n%s", res.Body)
 	}
 }
+
+func TestPaymentAndExpenseExports(t *testing.T) {
+	c := newDBServer(t, "2026-03-15")
+	l := newLease(t, c, nil)
+	c.mustStatus(http.StatusCreated, "POST", "/api/leases/"+l.ID+"/payments", map[string]any{
+		"amount_cents": 150000, "paid_on": "2026-02-01", "method": "check", "reference": "#1001",
+	})
+	c.mustStatus(http.StatusCreated, "POST", "/api/leases/"+l.ID+"/payments", map[string]any{
+		"amount_cents": 150000, "paid_on": "2026-03-01",
+	})
+	c.mustStatus(http.StatusCreated, "POST", "/api/expenses", map[string]any{
+		"property_id": l.PropertyID, "category": "repairs", "amount_cents": 12500, "spent_on": "2026-02-20",
+		"vendor": "Hardware Depot", "description": "=cmd|' /C calc'!A0",
+	})
+
+	res := c.mustStatus(http.StatusOK, "GET", "/api/payments/export.csv?from=2026-02-01&to=2026-02-28", nil)
+	want := "Date,Tenant,Property,Unit,Amount,Method,Reference,Notes\n2026-02-01,Rosa Parks,Alder House,Main,1500.00,check,#1001,\n"
+	if string(res.Body) != want {
+		t.Errorf("payments csv:\n%s", res.Body)
+	}
+
+	res = c.mustStatus(http.StatusOK, "GET", "/api/expenses/export.csv", nil)
+	lines := strings.Split(strings.TrimSpace(string(res.Body)), "\n")
+	if len(lines) != 2 || !strings.Contains(lines[1], `,'=cmd|' /C calc'!A0,`) || !strings.HasSuffix(lines[1], ",125.00") {
+		t.Errorf("expenses csv:\n%s", res.Body)
+	}
+}

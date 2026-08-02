@@ -30,6 +30,9 @@ type PaymentInput struct {
 	Notes       string      `json:"notes"`
 }
 
+// ExportAll as a PaymentFilter limit returns every matching payment.
+const ExportAll = -1
+
 type PaymentFilter struct {
 	LeaseID    string
 	PropertyID string
@@ -69,11 +72,14 @@ func (s *Store) ListPayments(ctx context.Context, ownerID string, f PaymentFilte
 		return nil, 0, err
 	}
 
-	limit := f.Limit
-	if limit <= 0 || limit > 500 {
-		limit = 50
+	q := paymentSelect + w.where() + ` ORDER BY pm.paid_on DESC, pm.created_at DESC`
+	switch {
+	case f.Limit == ExportAll:
+	case f.Limit <= 0 || f.Limit > 500:
+		q += ` LIMIT 50 OFFSET ` + w.arg(max(f.Offset, 0))
+	default:
+		q += ` LIMIT ` + w.arg(f.Limit) + ` OFFSET ` + w.arg(max(f.Offset, 0))
 	}
-	q := paymentSelect + w.where() + ` ORDER BY pm.paid_on DESC, pm.created_at DESC LIMIT ` + w.arg(limit) + ` OFFSET ` + w.arg(max(f.Offset, 0))
 	rows, err := s.pool.Query(ctx, q, w.args...)
 	payments, err := collectAll[Payment](rows, err)
 	return payments, total, err

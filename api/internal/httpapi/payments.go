@@ -19,6 +19,7 @@ type paymentStore interface {
 
 func (s *Server) paymentRoutes(r chi.Router) {
 	r.Get("/", s.handle(s.listPayments))
+	r.Get("/export.csv", s.handle(s.exportPayments))
 	r.Delete("/{id}", s.handle(s.deletePayment))
 }
 
@@ -28,28 +29,35 @@ type paymentList struct {
 	TotalCents int64           `json:"page_total_cents"`
 }
 
-func (s *Server) listPayments(w http.ResponseWriter, r *http.Request) error {
+func paymentFilter(r *http.Request) (store.PaymentFilter, error) {
 	var f store.PaymentFilter
 	var err error
 	if f.LeaseID, err = queryID(r, "lease_id"); err != nil {
-		return err
+		return f, err
 	}
 	if f.PropertyID, err = queryID(r, "property_id"); err != nil {
-		return err
+		return f, err
 	}
 	if f.From, err = queryDate(r, "from"); err != nil {
-		return err
+		return f, err
 	}
 	if f.To, err = queryDate(r, "to"); err != nil {
-		return err
+		return f, err
 	}
 	if f.Limit, err = queryInt(r, "limit", 50); err != nil {
-		return err
+		return f, err
 	}
 	if f.Offset, err = queryInt(r, "offset", 0); err != nil {
+		return f, err
+	}
+	return f, nil
+}
+
+func (s *Server) listPayments(w http.ResponseWriter, r *http.Request) error {
+	f, err := paymentFilter(r)
+	if err != nil {
 		return err
 	}
-
 	payments, total, err := s.store.ListPayments(r.Context(), userID(r), f)
 	if err != nil {
 		return err
@@ -109,4 +117,25 @@ func (s *Server) deletePayment(w http.ResponseWriter, r *http.Request) error {
 	}
 	w.WriteHeader(http.StatusNoContent)
 	return nil
+}
+
+// exportPayments sends every payment matching the filter as CSV, for
+// bookkeeping and tax returns.
+func (s *Server) exportPayments(w http.ResponseWriter, r *http.Request) error {
+	f, err := paymentFilter(r)
+	if err != nil {
+		return err
+	}
+	f.Limit, f.Offset = store.ExportAll, 0
+	payments, _, err := s.store.ListPayments(r.Context(), userID(r), f)
+	if err != nil {
+		return err
+	}
+	rows := make([][]string, len(payments))
+	for i, p := range payments {
+		rows[i] = []string{p.PaidOn.String(), p.TenantName, p.PropertyName, p.UnitLabel,
+			csvMoney(p.AmountCents), p.Method, p.Reference, p.Notes}
+	}
+	return writeCSV(w, "payments.csv",
+		[]string{"Date", "Tenant", "Property", "Unit", "Amount", "Method", "Reference", "Notes"}, rows)
 }

@@ -21,6 +21,7 @@ type expenseStore interface {
 
 func (s *Server) expenseRoutes(r chi.Router) {
 	r.Get("/", s.handle(s.listExpenses))
+	r.Get("/export.csv", s.handle(s.exportExpenses))
 	r.Post("/", s.handle(s.createExpense))
 	r.Get("/{id}", s.handle(s.getExpense))
 	r.Put("/{id}", s.handle(s.updateExpense))
@@ -33,26 +34,33 @@ type expenseList struct {
 	ByCategory []store.CategoryTotal `json:"by_category"`
 }
 
-func (s *Server) listExpenses(w http.ResponseWriter, r *http.Request) error {
+func expenseFilter(r *http.Request) (store.ExpenseFilter, error) {
 	var f store.ExpenseFilter
 	var err error
 	if f.PropertyID, err = queryID(r, "property_id"); err != nil {
-		return err
+		return f, err
 	}
 	if f.VendorID, err = queryID(r, "vendor_id"); err != nil {
-		return err
+		return f, err
 	}
 	f.Category = r.URL.Query().Get("category")
 	if f.Category != "" && !domain.OneOf(f.Category, domain.ExpenseCategories) {
-		return errBadRequest("unknown category " + f.Category)
+		return f, errBadRequest("unknown category " + f.Category)
 	}
 	if f.From, err = queryDate(r, "from"); err != nil {
-		return err
+		return f, err
 	}
 	if f.To, err = queryDate(r, "to"); err != nil {
+		return f, err
+	}
+	return f, nil
+}
+
+func (s *Server) listExpenses(w http.ResponseWriter, r *http.Request) error {
+	f, err := expenseFilter(r)
+	if err != nil {
 		return err
 	}
-
 	expenses, err := s.store.ListExpenses(r.Context(), userID(r), f)
 	if err != nil {
 		return err
@@ -149,4 +157,25 @@ func (s *Server) deleteExpense(w http.ResponseWriter, r *http.Request) error {
 	}
 	w.WriteHeader(http.StatusNoContent)
 	return nil
+}
+
+func (s *Server) exportExpenses(w http.ResponseWriter, r *http.Request) error {
+	f, err := expenseFilter(r)
+	if err != nil {
+		return err
+	}
+	expenses, err := s.store.ListExpenses(r.Context(), userID(r), f)
+	if err != nil {
+		return err
+	}
+	rows := make([][]string, len(expenses))
+	for i, e := range expenses {
+		job := ""
+		if e.MaintenanceTitle != nil {
+			job = *e.MaintenanceTitle
+		}
+		rows[i] = []string{e.SpentOn.String(), e.PropertyName, e.Category, e.Vendor, e.Description, job, csvMoney(e.AmountCents)}
+	}
+	return writeCSV(w, "expenses.csv",
+		[]string{"Date", "Property", "Category", "Vendor", "Description", "Maintenance request", "Amount"}, rows)
 }

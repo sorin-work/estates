@@ -476,10 +476,39 @@ h3 {
   border-bottom: 0;
 }
 
-.table tfoot td {
+.table tfoot td,
+.table tfoot th {
   font-weight: 700;
   border-top: 2px solid var(--border);
   border-bottom: 0;
+}
+
+.table tfoot th {
+  color: inherit;
+  font-size: inherit;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.table tfoot th.num {
+  text-align: right;
+}
+
+.table .negative {
+  color: var(--bad);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .table .num {

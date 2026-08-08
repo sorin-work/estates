@@ -393,3 +393,21 @@ export interface RecurringExpenseInput {
   start_date: ISODate;
   end_date: ISODate | null;
 }
+
+export interface PropertyResult {
+  property_id: string;
+  property_name: string;
+  charged_cents: Cents;
+  collected_cents: Cents;
+  withheld_cents: Cents;
+  expenses_cents: Cents;
+  net_cents: Cents;
+  by_category: { category: ExpenseCategory; amount_cents: Cents }[];
+}
+
+export interface ProfitLoss {
+  from: ISODate;
+  to: ISODate;
+  properties: PropertyResult[];
+  totals: PropertyResult;
+}

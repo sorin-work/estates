@@ -61,8 +61,8 @@ export function buildPath(path: string, query?: Query): string {
   return qs ? `${path}?${qs}` : path;
 }
 
-export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers: Record<string, string> = { Accept: 'application/json' };
+async function send(path: string, options: RequestOptions, accept: string): Promise<Response> {
+  const headers: Record<string, string> = { Accept: accept };
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -78,23 +78,48 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     if (err instanceof DOMException && err.name === 'AbortError') throw err;
     throw new ApiError(0, 'network', 'Could not reach the server. Check your connection and try again.');
   }
-
-  if (res.status === 204) return undefined as T;
+  if (res.ok) return res;
 
   const data: unknown = await res.json().catch(() => null);
-  if (!res.ok) {
-    const error = (data as { error?: { code?: string; message?: string; fields?: Record<string, string> } } | null)
-      ?.error;
-    if (res.status === 401 && token) {
-      setToken(null);
-      window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
-    }
-    throw new ApiError(
-      res.status,
-      error?.code ?? 'unknown',
-      error?.message ?? `Request failed (${res.status})`,
-      error?.fields ?? {},
-    );
+  const error = (data as { error?: { code?: string; message?: string; fields?: Record<string, string> } } | null)
+    ?.error;
+  if (res.status === 401 && token) {
+    setToken(null);
+    window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   }
-  return data as T;
+  throw new ApiError(
+    res.status,
+    error?.code ?? 'unknown',
+    error?.message ?? `Request failed (${res.status})`,
+    error?.fields ?? {},
+  );
+}
+
+export async function api<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const res = await send(path, options, 'application/json');
+  if (res.status === 204) return undefined as T;
+  return (await res.json().catch(() => null)) as T;
+}
+
+/** The filename from a Content-Disposition header, if it has one. */
+export function filenameFrom(header: string | null, fallback: string): string {
+  const match = header?.match(/filename="?([^";]+)"?/);
+  return match?.[1] ?? fallback;
+}
+
+/**
+ * Fetches a file with the signed in user's token and hands it to the
+ * browser as a download. A plain link would not send the token.
+ */
+export async function download(path: string, query?: Query, fallbackName = 'download'): Promise<void> {
+  const res = await send(path, { query }, '*/*');
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filenameFrom(res.headers.get('Content-Disposition'), fallbackName);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

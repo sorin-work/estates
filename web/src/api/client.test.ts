@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mockFetch } from '../test/render';
-import { api, ApiError, buildPath, getToken, setToken, UNAUTHORIZED_EVENT } from './client';
+import { api, ApiError, buildPath, filenameFrom, getToken, setToken, UNAUTHORIZED_EVENT } from './client';
 
 afterEach(() => setToken(null));
 
@@ -58,5 +58,13 @@ describe('api', () => {
   it('returns undefined for 204 responses', async () => {
     mockFetch({ 'DELETE /api/units/u1': { status: 204 } });
     await expect(api('/units/u1', { method: 'DELETE' })).resolves.toBeUndefined();
+  });
+});
+
+describe('filenameFrom', () => {
+  it('reads the filename from Content-Disposition', () => {
+    expect(filenameFrom('attachment; filename="payments.csv"', 'x')).toBe('payments.csv');
+    expect(filenameFrom('attachment; filename=report.csv', 'x')).toBe('report.csv');
+    expect(filenameFrom(null, 'fallback.csv')).toBe('fallback.csv');
   });
 });

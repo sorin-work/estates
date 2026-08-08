@@ -1,4 +1,4 @@
-import { api } from './client';
+import { api, download } from './client';
 import type { Balance, PaymentList } from './types';
 
 export interface PaymentFilter {
@@ -11,6 +11,8 @@ export interface PaymentFilter {
 }
 
 export const listPayments = (filter: PaymentFilter = {}) => api<PaymentList>('/payments', { query: { ...filter } });
+export const exportPayments = (filter: Omit<PaymentFilter, 'limit' | 'offset'>) =>
+  download('/payments/export.csv', { ...filter }, 'payments.csv');
 export const deletePayment = (id: string) => api<void>(`/payments/${id}`, { method: 'DELETE' });
 
 export const listBalances = (overdueOnly = false) =>

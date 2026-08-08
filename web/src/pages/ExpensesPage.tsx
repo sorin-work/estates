@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router';
-import { createExpense, deleteExpense, listExpenses, updateExpense } from '../api/expenses';
+import { createExpense, deleteExpense, exportExpenses, listExpenses, updateExpense } from '../api/expenses';
 import { listProperties } from '../api/properties';
 import type { Expense, ExpenseCategory, ExpenseInput } from '../api/types';
 import ExpenseForm from '../components/forms/ExpenseForm';
@@ -41,6 +41,7 @@ export default function ExpensesPage() {
     },
   });
   const remove = useMutation({ mutationFn: deleteExpense, onSuccess: refresh });
+  const exportCsv = useMutation({ mutationFn: () => exportExpenses(filter) });
 
   function setFilter(key: string, value: string) {
     const next = new URLSearchParams(params);
@@ -57,9 +58,19 @@ export default function ExpensesPage() {
       <PageHeader
         title="Expenses"
         actions={
-          <button type="button" className="button" onClick={() => setForm('new')}>
-            Add expense
-          </button>
+          <>
+            <button
+              type="button"
+              className="button secondary"
+              disabled={exportCsv.isPending}
+              onClick={() => exportCsv.mutate()}
+            >
+              Export CSV
+            </button>
+            <button type="button" className="button" onClick={() => setForm('new')}>
+              Add expense
+            </button>
+          </>
         }
       />
       <div className="toolbar">

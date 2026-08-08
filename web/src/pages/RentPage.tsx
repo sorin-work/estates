@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { listBalances, listPayments, runBilling } from '../api/rent';
+import { exportPayments, listBalances, listPayments, runBilling } from '../api/rent';
 import PageHeader from '../components/PageHeader';
 import { EmptyState, ErrorState, Loading } from '../components/States';
 import { formatDate, formatMonthLong, monthRange, today } from '../lib/dates';
@@ -18,6 +18,7 @@ export default function RentPage() {
 
   const balances = useQuery({ queryKey: ['balances', overdueOnly], queryFn: () => listBalances(overdueOnly) });
   const range = monthRange(month);
+  const exportCsv = useMutation({ mutationFn: () => exportPayments(range) });
   const payments = useQuery({
     queryKey: ['payments', { month, page }],
     queryFn: () => listPayments({ ...range, limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
@@ -115,6 +116,14 @@ export default function RentPage() {
       <section className="card">
         <div className="card-header">
           <h2>Payments in {formatMonthLong(month)}</h2>
+          <button
+            type="button"
+            className="link-button"
+            disabled={exportCsv.isPending}
+            onClick={() => exportCsv.mutate()}
+          >
+            Export CSV
+          </button>
           <input
             type="month"
             aria-label="Month"

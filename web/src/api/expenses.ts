@@ -1,4 +1,4 @@
-import { api } from './client';
+import { api, download } from './client';
 import type {
   Expense,
   ExpenseCategory,
@@ -17,6 +17,8 @@ export interface ExpenseFilter {
 }
 
 export const listExpenses = (filter: ExpenseFilter = {}) => api<ExpenseList>('/expenses', { query: { ...filter } });
+export const exportExpenses = (filter: ExpenseFilter = {}) =>
+  download('/expenses/export.csv', { ...filter }, 'expenses.csv');
 export const createExpense = (input: ExpenseInput) => api<Expense>('/expenses', { method: 'POST', body: input });
 export const updateExpense = (id: string, input: ExpenseInput) =>
   api<Expense>(`/expenses/${id}`, { method: 'PUT', body: input });

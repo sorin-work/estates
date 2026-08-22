@@ -15,11 +15,13 @@ type paymentStore interface {
 	GetPayment(ctx context.Context, ownerID, id string) (store.Payment, error)
 	CreatePayment(ctx context.Context, ownerID, leaseID string, in store.PaymentInput) (string, error)
 	DeletePayment(ctx context.Context, ownerID, id string) error
+	LedgerEntries(ctx context.Context, ownerID, leaseID string) (map[string]*store.LedgerEntries, error)
 }
 
 func (s *Server) paymentRoutes(r chi.Router) {
 	r.Get("/", s.handle(s.listPayments))
 	r.Get("/export.csv", s.handle(s.exportPayments))
+	r.Get("/{id}/receipt", s.handle(s.paymentReceipt))
 	r.Delete("/{id}", s.handle(s.deletePayment))
 }
 

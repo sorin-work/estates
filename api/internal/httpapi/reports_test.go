@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/sorin-work/estates/api/internal/store"
 )
 
 func TestProfitLoss(t *testing.T) {
@@ -84,4 +86,34 @@ func TestPaymentAndExpenseExports(t *testing.T) {
 	if len(lines) != 2 || !strings.Contains(lines[1], `,'=cmd|' /C calc'!A0,`) || !strings.HasSuffix(lines[1], ",125.00") {
 		t.Errorf("expenses csv:\n%s", res.Body)
 	}
+}
+
+func TestPaymentReceipt(t *testing.T) {
+	c := newDBServer(t, "2026-03-15")
+	l := newLease(t, c, map[string]any{"rent_cents": 150000})
+
+	var first, second store.Payment
+	c.mustStatus(http.StatusCreated, "POST", "/api/leases/"+l.ID+"/payments", map[string]any{
+		"amount_cents": 150000, "paid_on": "2026-01-02",
+	}).decode(t, &first)
+	c.mustStatus(http.StatusCreated, "POST", "/api/leases/"+l.ID+"/payments", map[string]any{
+		"amount_cents": 100000, "paid_on": "2026-02-03", "method": "check", "reference": "#204",
+	}).decode(t, &second)
+	if first.ReceiptNumber != 1 || second.ReceiptNumber != 2 {
+		t.Fatalf("receipt numbers %d, %d", first.ReceiptNumber, second.ReceiptNumber)
+	}
+
+	var rc receiptResponse
+	c.mustStatus(http.StatusOK, "GET", "/api/payments/"+second.ID+"/receipt", nil).decode(t, &rc)
+	if rc.Number != 2 || rc.Tenant.Name != "Rosa Parks" || rc.Landlord.Email != "owner@example.com" ||
+		rc.Property.Name != "Alder House" || rc.Property.UnitLabel != "Main" || rc.Payment.Reference != "#204" {
+		t.Errorf("receipt %+v", rc)
+	}
+	// January and February charged, 2,500 of 3,000 paid by February 3rd.
+	if rc.BalanceAfterCents != 50000 {
+		t.Errorf("balance after %d", rc.BalanceAfterCents)
+	}
+
+	other := newDBServerFor(t, c, "other@example.com")
+	other.mustStatus(http.StatusNotFound, "GET", "/api/payments/"+second.ID+"/receipt", nil)
 }

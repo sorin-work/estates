@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/sorin-work/estates/api/internal/domain"
 )
 
@@ -19,7 +21,9 @@ type Payment struct {
 	Method       string      `db:"method" json:"method"`
 	Reference    string      `db:"reference" json:"reference"`
 	Notes        string      `db:"notes" json:"notes"`
-	CreatedAt    time.Time   `db:"created_at" json:"created_at"`
+	// ReceiptNumber counts the owner's payments, starting at 1.
+	ReceiptNumber int       `db:"receipt_number" json:"receipt_number"`
+	CreatedAt     time.Time `db:"created_at" json:"created_at"`
 }
 
 type PaymentInput struct {
@@ -45,7 +49,7 @@ type PaymentFilter struct {
 const paymentSelect = `
 	SELECT pm.id, pm.lease_id, t.first_name || ' ' || t.last_name AS tenant_name,
 	       p.id AS property_id, p.name AS property_name, u.label AS unit_label,
-	       pm.amount_cents, pm.paid_on, pm.method, pm.reference, pm.notes, pm.created_at
+	       pm.amount_cents, pm.paid_on, pm.method, pm.reference, pm.notes, pm.receipt_number, pm.created_at
 	  FROM payments pm
 	  JOIN leases l ON l.id = pm.lease_id
 	  JOIN tenants t ON t.id = l.tenant_id` + ownedLease
@@ -90,15 +94,29 @@ func (s *Store) GetPayment(ctx context.Context, ownerID, id string) (Payment, er
 	return collectOne[Payment](rows, err)
 }
 
+// CreatePayment records a payment and gives it the owner's next receipt
+// number. The owner's row is locked so two payments cannot get the same one.
 func (s *Store) CreatePayment(ctx context.Context, ownerID, leaseID string, in PaymentInput) (string, error) {
 	var id string
-	err := s.pool.QueryRow(ctx, `
-		INSERT INTO payments (lease_id, amount_cents, paid_on, method, reference, notes)
-		SELECT l.id, $3, $4, $5, $6, $7 FROM leases l`+ownedLease+` WHERE l.id = $2
-		RETURNING id`,
-		ownerID, leaseID, in.AmountCents, in.PaidOn, in.Method, in.Reference, in.Notes,
-	).Scan(&id)
-	return id, notFound(err)
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `SELECT 1 FROM users WHERE id = $1 FOR UPDATE`, ownerID); err != nil {
+			return err
+		}
+		err := tx.QueryRow(ctx, `
+			INSERT INTO payments (lease_id, amount_cents, paid_on, method, reference, notes, receipt_number)
+			SELECT l.id, $3, $4, $5, $6, $7,
+			       (SELECT COALESCE(max(pm.receipt_number), 0) + 1
+			          FROM payments pm
+			          JOIN leases l2 ON l2.id = pm.lease_id
+			          JOIN units u2 ON u2.id = l2.unit_id
+			          JOIN properties p2 ON p2.id = u2.property_id AND p2.owner_id = $1)
+			  FROM leases l`+ownedLease+` WHERE l.id = $2
+			RETURNING id`,
+			ownerID, leaseID, in.AmountCents, in.PaidOn, in.Method, in.Reference, in.Notes,
+		).Scan(&id)
+		return notFound(err)
+	})
+	return id, err
 }
 
 func (s *Store) DeletePayment(ctx context.Context, ownerID, id string) error {

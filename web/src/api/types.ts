@@ -153,6 +153,7 @@ export interface Payment {
   method: PaymentMethod;
   reference: string;
   notes: string;
+  receipt_number: number;
 }
 
 export interface PaymentInput {
@@ -410,4 +411,22 @@ export interface ProfitLoss {
   to: ISODate;
   properties: PropertyResult[];
   totals: PropertyResult;
+}
+
+export interface Receipt {
+  number: number;
+  issued_on: ISODate;
+  payment: Payment;
+  landlord: { name: string; email: string };
+  tenant: { name: string; email: string; phone?: string };
+  property: {
+    name: string;
+    address_line1: string;
+    address_line2: string;
+    city: string;
+    region: string;
+    postal_code: string;
+    unit_label: string;
+  };
+  balance_after_cents: Cents;
 }

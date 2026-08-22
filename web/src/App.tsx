@@ -10,6 +10,7 @@ import MaintenancePage from './pages/MaintenancePage';
 import NotFoundPage from './pages/NotFoundPage';
 import PropertiesPage from './pages/PropertiesPage';
 import PropertyDetailPage from './pages/PropertyDetailPage';
+import ReceiptPage from './pages/ReceiptPage';
 import RegisterPage from './pages/RegisterPage';
 import RentPage from './pages/RentPage';
 import ReportsPage from './pages/ReportsPage';
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/register" element={<RegisterPage />} />
       </Route>
       <Route element={<RequireAuth />}>
+        <Route path="payments/:id/receipt" element={<ReceiptPage />} />
         <Route element={<Layout />}>
           <Route index element={<DashboardPage />} />
           <Route path="properties" element={<PropertiesPage />} />

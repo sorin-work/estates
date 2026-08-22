@@ -147,6 +147,7 @@ export default function RentPage() {
                   <th>Property</th>
                   <th>Method</th>
                   <th className="num">Amount</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -164,6 +165,14 @@ export default function RentPage() {
                       {p.reference && <span className="muted"> {p.reference}</span>}
                     </td>
                     <td className="num">{formatMoney(p.amount_cents)}</td>
+                    <td className="row-actions">
+                      <Link
+                        to={`/payments/${p.id}/receipt`}
+                        aria-label={`Receipt for ${p.tenant_name}, ${formatDate(p.paid_on)}`}
+                      >
+                        Receipt
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>

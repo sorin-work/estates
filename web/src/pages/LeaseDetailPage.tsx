@@ -288,6 +288,7 @@ export default function LeaseDetailPage() {
                   <td>{p.reference || p.notes || '—'}</td>
                   <td className="num">{formatMoney(p.amount_cents)}</td>
                   <td className="row-actions">
+                    <Link to={`/payments/${p.id}/receipt`}>Receipt</Link>
                     <button
                       type="button"
                       className="link-button danger"

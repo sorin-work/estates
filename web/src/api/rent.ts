@@ -1,5 +1,5 @@
 import { api, download } from './client';
-import type { Balance, PaymentList } from './types';
+import type { Balance, PaymentList, Receipt } from './types';
 
 export interface PaymentFilter {
   lease_id?: string;
@@ -19,3 +19,4 @@ export const listBalances = (overdueOnly = false) =>
   api<Balance[]>('/rent/balances', { query: { overdue: overdueOnly || undefined } });
 export const runBilling = () =>
   api<{ leases: number; rent_charges: number; late_fees: number }>('/rent/run', { method: 'POST' });
+export const getReceipt = (paymentId: string) => api<Receipt>(`/payments/${paymentId}/receipt`);

@@ -81,6 +81,7 @@ func (s *Server) createTenant(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	s.audit(r, "tenant", t.ID, "", "created", "Added tenant "+t.FirstName+" "+t.LastName)
 	writeJSON(w, http.StatusCreated, t)
 	return nil
 }
@@ -101,6 +102,7 @@ func (s *Server) updateTenant(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	s.audit(r, "tenant", t.ID, "", "updated", "Updated tenant "+t.FirstName+" "+t.LastName)
 	writeJSON(w, http.StatusOK, t)
 	return nil
 }
@@ -110,9 +112,14 @@ func (s *Server) deleteTenant(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	t, err := s.store.GetTenant(r.Context(), userID(r), id)
+	if err != nil {
+		return notFoundAs(err, "tenant")
+	}
 	if err := s.store.DeleteTenant(r.Context(), userID(r), id); err != nil {
 		return notFoundAs(err, "tenant")
 	}
+	s.audit(r, "tenant", id, "", "deleted", "Deleted tenant "+t.FirstName+" "+t.LastName)
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }

@@ -84,6 +84,7 @@ func (s *Server) createDeposit(w http.ResponseWriter, r *http.Request) error {
 	if _, err := s.store.CreateDeposit(r.Context(), userID(r), l.ID, in); err != nil {
 		return notFoundAs(err, "lease")
 	}
+	s.audit(r, "deposit", l.ID, l.ID, in.Kind, "Deposit "+in.Kind+": "+money(in.AmountCents)+" on "+in.OccurredOn.String())
 	resp, err := s.depositSummary(r.Context(), userID(r), l)
 	if err != nil {
 		return err
@@ -100,6 +101,7 @@ func (s *Server) deleteDeposit(w http.ResponseWriter, r *http.Request) error {
 	if err := s.store.DeleteDeposit(r.Context(), userID(r), id); err != nil {
 		return notFoundAs(err, "deposit transaction")
 	}
+	s.audit(r, "deposit", id, "", "deleted", "Deleted a deposit entry")
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }

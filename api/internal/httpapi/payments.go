@@ -105,6 +105,7 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	s.audit(r, "payment", p.ID, p.LeaseID, "created", "Payment of "+money(p.AmountCents)+" from "+p.TenantName+" on "+p.PaidOn.String())
 	writeJSON(w, http.StatusCreated, p)
 	return nil
 }
@@ -114,9 +115,14 @@ func (s *Server) deletePayment(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	p, err := s.store.GetPayment(r.Context(), userID(r), id)
+	if err != nil {
+		return notFoundAs(err, "payment")
+	}
 	if err := s.store.DeletePayment(r.Context(), userID(r), id); err != nil {
 		return notFoundAs(err, "payment")
 	}
+	s.audit(r, "payment", id, p.LeaseID, "deleted", "Deleted the payment of "+money(p.AmountCents)+" from "+p.TenantName+" on "+p.PaidOn.String())
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }

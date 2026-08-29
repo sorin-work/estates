@@ -125,6 +125,7 @@ func (s *Server) createMaintenance(w http.ResponseWriter, r *http.Request) error
 	if err != nil {
 		return err
 	}
+	s.audit(r, "maintenance", m.ID, "", "created", "Maintenance request: "+m.Title)
 	writeJSON(w, http.StatusCreated, viewMaintenance(m))
 	return nil
 }
@@ -195,6 +196,7 @@ func (s *Server) setMaintenanceStatus(w http.ResponseWriter, r *http.Request) er
 	if err != nil {
 		return err
 	}
+	s.audit(r, "maintenance", m.ID, "", in.Status, m.Title+" is now "+label(in.Status))
 	writeJSON(w, http.StatusOK, viewMaintenance(m))
 	return nil
 }

@@ -46,6 +46,7 @@ func (s *Server) addRentChange(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	s.audit(r, "lease", l.ID, l.ID, "rent_changed", "Rent for "+l.TenantName+" set to "+money(in.RentCents)+" from "+in.EffectiveDate.String())
 	writeJSON(w, http.StatusCreated, l)
 	return nil
 }
@@ -58,6 +59,7 @@ func (s *Server) deleteRentChange(w http.ResponseWriter, r *http.Request) error 
 	if err := s.store.DeleteRentChange(r.Context(), userID(r), id); err != nil {
 		return notFoundAs(err, "rent change")
 	}
+	s.audit(r, "rent_change", id, "", "deleted", "Removed a rent change")
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }
@@ -88,6 +90,8 @@ func (s *Server) renewLease(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	s.audit(r, "lease", l.ID, id, "renewed", "Renewed the lease of "+l.TenantName+" until "+l.EndDate.String()+" at "+money(l.RentCents))
+	s.audit(r, "lease", l.ID, l.ID, "created", "Renewal of an earlier lease, from "+l.StartDate.String())
 	writeJSON(w, http.StatusCreated, l)
 	return nil
 }

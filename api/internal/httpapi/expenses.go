@@ -123,6 +123,7 @@ func (s *Server) createExpense(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	s.audit(r, "expense", e.ID, "", "created", "Expense of "+money(e.AmountCents)+" for "+e.PropertyName+" ("+e.Category+")")
 	writeJSON(w, http.StatusCreated, e)
 	return nil
 }
@@ -155,6 +156,7 @@ func (s *Server) deleteExpense(w http.ResponseWriter, r *http.Request) error {
 	if err := s.store.DeleteExpense(r.Context(), userID(r), id); err != nil {
 		return notFoundAs(err, "expense")
 	}
+	s.audit(r, "expense", id, "", "deleted", "Deleted an expense")
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }

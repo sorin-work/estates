@@ -157,6 +157,7 @@ func (s *Server) createLease(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	s.audit(r, "lease", l.ID, l.ID, "created", "Lease for "+l.TenantName+" at "+leasePlace(l)+" from "+l.StartDate.String()+" at "+money(l.RentCents)+" a month")
 	writeJSON(w, http.StatusCreated, l)
 	return nil
 }
@@ -177,6 +178,7 @@ func (s *Server) updateLease(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	s.audit(r, "lease", l.ID, l.ID, "updated", "Updated the lease of "+l.TenantName+" at "+leasePlace(l))
 	writeJSON(w, http.StatusOK, l)
 	return nil
 }
@@ -204,6 +206,7 @@ func (s *Server) terminateLease(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	s.audit(r, "lease", l.ID, l.ID, "terminated", "Lease of "+l.TenantName+" ended early on "+in.Date.String())
 	writeJSON(w, http.StatusOK, s.withStatus(l))
 	return nil
 }
@@ -213,9 +216,14 @@ func (s *Server) deleteLease(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	l, err := s.store.GetLease(r.Context(), userID(r), id)
+	if err != nil {
+		return notFoundAs(err, "lease")
+	}
 	if err := s.store.DeleteLease(r.Context(), userID(r), id); err != nil {
 		return notFoundAs(err, "lease")
 	}
+	s.audit(r, "lease", id, id, "deleted", "Deleted the lease of "+l.TenantName+" at "+leasePlace(l))
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }
@@ -317,6 +325,7 @@ func (s *Server) createCharge(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return notFoundAs(err, "lease")
 	}
+	s.audit(r, "charge", chargeID, id, "created", "Charged "+money(in.AmountCents)+" ("+in.Kind+") due "+in.DueDate.String())
 	writeJSON(w, http.StatusCreated, map[string]string{"id": chargeID})
 	return nil
 }
@@ -329,6 +338,7 @@ func (s *Server) deleteCharge(w http.ResponseWriter, r *http.Request) error {
 	if err := s.store.DeleteCharge(r.Context(), userID(r), id); err != nil {
 		return notFoundAs(err, "charge")
 	}
+	s.audit(r, "charge", id, "", "deleted", "Deleted a charge")
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }

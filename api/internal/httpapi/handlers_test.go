@@ -24,6 +24,7 @@ type fakeStore struct {
 	maintenance map[string]store.MaintenanceRequest
 	statusSet   []string
 	properties  []store.PropertyInput
+	activity    []store.Activity
 }
 
 func newFakeStore() *fakeStore {
@@ -77,6 +78,11 @@ func (f *fakeStore) SetPassword(_ context.Context, id, hash string) error {
 	}
 	u.PasswordHash = hash
 	f.users[id] = u
+	return nil
+}
+
+func (f *fakeStore) RecordActivity(_ context.Context, _ string, a store.Activity) error {
+	f.activity = append(f.activity, a)
 	return nil
 }
 

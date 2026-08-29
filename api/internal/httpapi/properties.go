@@ -85,6 +85,7 @@ func (s *Server) createProperty(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	s.audit(r, "property", p.ID, "", "created", "Added property "+p.Name)
 	writeJSON(w, http.StatusCreated, p)
 	return nil
 }
@@ -105,6 +106,7 @@ func (s *Server) updateProperty(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	s.audit(r, "property", p.ID, "", "updated", "Updated property "+p.Name)
 	writeJSON(w, http.StatusOK, p)
 	return nil
 }
@@ -114,9 +116,14 @@ func (s *Server) deleteProperty(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	p, err := s.store.GetProperty(r.Context(), userID(r), id, s.today())
+	if err != nil {
+		return notFoundAs(err, "property")
+	}
 	if err := s.store.DeleteProperty(r.Context(), userID(r), id); err != nil {
 		return notFoundAs(err, "property")
 	}
+	s.audit(r, "property", id, "", "deleted", "Deleted property "+p.Name)
 	w.WriteHeader(http.StatusNoContent)
 	return nil
 }

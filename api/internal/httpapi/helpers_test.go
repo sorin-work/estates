@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -98,3 +99,5 @@ func (c *client) mustStatus(want int, method, path string, body any) response {
 	}
 	return res
 }
+
+func itoa(n int64) string { return strconv.FormatInt(n, 10) }

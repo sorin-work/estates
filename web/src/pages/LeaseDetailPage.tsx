@@ -17,8 +17,10 @@ import {
   terminateLease,
   updateLease,
 } from '../api/leases';
+import { listActivity } from '../api/activity';
 import { deletePayment } from '../api/rent';
 import type { ChargeInput, DepositInput, LeaseInput, PaymentInput, RenewalInput, RentChangeInput } from '../api/types';
+import ActivityList from '../components/ActivityList';
 import ChargeForm from '../components/forms/ChargeForm';
 import DepositForm from '../components/forms/DepositForm';
 import LeaseForm from '../components/forms/LeaseForm';
@@ -52,9 +54,23 @@ export default function LeaseDetailPage() {
   const lease = useQuery({ queryKey: ['leases', 'detail', id], queryFn: () => getLease(id) });
   const ledger = useQuery({ queryKey: ['ledger', id], queryFn: () => getLedger(id) });
   const deposit = useQuery({ queryKey: ['deposit', id], queryFn: () => getDeposit(id) });
+  const history = useQuery({
+    queryKey: ['activity', { lease_id: id }],
+    queryFn: () => listActivity({ lease_id: id, limit: 20 }),
+  });
 
   const refresh = () => {
-    for (const key of ['leases', 'ledger', 'deposit', 'payments', 'balances', 'dashboard', 'units', 'properties']) {
+    for (const key of [
+      'leases',
+      'ledger',
+      'deposit',
+      'activity',
+      'payments',
+      'balances',
+      'dashboard',
+      'units',
+      'properties',
+    ]) {
       void queryClient.invalidateQueries({ queryKey: [key] });
     }
   };
@@ -417,6 +433,15 @@ export default function LeaseDetailPage() {
         )}
         <FormError error={removeDeposit.error} />
       </section>
+
+      {history.data && history.data.length > 0 && (
+        <section className="card">
+          <div className="card-header">
+            <h2>History</h2>
+          </div>
+          <ActivityList entries={history.data} />
+        </section>
+      )}
 
       <div className="danger-zone">
         <button

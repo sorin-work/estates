@@ -430,3 +430,13 @@ export interface Receipt {
   };
   balance_after_cents: Cents;
 }
+
+export interface Activity {
+  id: number;
+  entity_type: string;
+  entity_id: string;
+  lease_id: string | null;
+  action: string;
+  summary: string;
+  created_at: string;
+}

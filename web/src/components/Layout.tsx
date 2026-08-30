@@ -12,6 +12,7 @@ const nav = [
   { to: '/vendors', label: 'Vendors' },
   { to: '/expenses', label: 'Expenses' },
   { to: '/reports', label: 'Reports' },
+  { to: '/activity', label: 'Activity' },
 ];
 
 export default function Layout() {

@@ -39,6 +39,7 @@ type client struct {
 type response struct {
 	Status int
 	Body   []byte
+	Header http.Header
 }
 
 func (r response) decode(t *testing.T, v any) {
@@ -88,7 +89,7 @@ func (c *client) do(method, path string, body any) response {
 	}
 	rec := httptest.NewRecorder()
 	c.handler.ServeHTTP(rec, req)
-	return response{Status: rec.Code, Body: rec.Body.Bytes()}
+	return response{Status: rec.Code, Body: rec.Body.Bytes(), Header: rec.Header()}
 }
 
 func (c *client) mustStatus(want int, method, path string, body any) response {

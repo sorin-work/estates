@@ -33,6 +33,7 @@ type Store interface {
 	renewalStore
 	reportStore
 	activityStore
+	documentStore
 	dashboardStore
 }
 
@@ -121,6 +122,7 @@ func (s *Server) Handler() http.Handler {
 			r.Route("/recurring-expenses", s.recurringRoutes)
 			r.Route("/rent-changes", s.rentChangeRoutes)
 			r.Route("/reports", s.reportRoutes)
+			r.Route("/documents", s.documentRoutes)
 			r.Get("/dashboard", s.handle(s.dashboard))
 			r.Get("/activity", s.handle(s.listActivity))
 		})

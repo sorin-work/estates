@@ -1176,3 +1176,26 @@ input[type='checkbox'] {
 .activity section:first-child .activity-day {
   margin-top: 0;
 }
+
+/* Documents */
+
+.upload {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.upload input[type='text'] {
+  flex: 1;
+  min-width: 10rem;
+}
+
+.doc-name {
+  padding: 0;
+  text-align: left;
+  font-weight: 600;
+}

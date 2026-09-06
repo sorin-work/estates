@@ -5,6 +5,7 @@ import { listLeases } from '../api/leases';
 import { deleteTenant, getTenant, updateTenant } from '../api/tenants';
 import type { TenantInput } from '../api/types';
 import TenantForm from '../components/forms/TenantForm';
+import Documents from '../components/Documents';
 import Modal from '../components/Modal';
 import PageHeader from '../components/PageHeader';
 import { ErrorState, Loading } from '../components/States';
@@ -105,6 +106,8 @@ export default function TenantDetailPage() {
           </table>
         )}
       </section>
+
+      <Documents target={{ tenant_id: t.id }} hint="ID copies, references and applications." />
 
       {editing && (
         <Modal title="Edit tenant" onClose={() => setEditing(false)}>

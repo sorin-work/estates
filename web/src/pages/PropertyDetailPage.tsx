@@ -16,6 +16,7 @@ import {
 import type { Unit } from '../api/types';
 import PropertyForm from '../components/forms/PropertyForm';
 import UnitForm from '../components/forms/UnitForm';
+import Documents from '../components/Documents';
 import Modal from '../components/Modal';
 import PageHeader from '../components/PageHeader';
 import { ErrorState, Loading } from '../components/States';
@@ -261,6 +262,8 @@ export default function PropertyDetailPage() {
           </table>
         )}
       </section>
+
+      <Documents target={{ property_id: p.id }} hint="Insurance policies, inspection certificates and plans." />
 
       {editing && (
         <Modal title="Edit property" onClose={() => setEditing(false)}>

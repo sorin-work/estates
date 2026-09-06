@@ -46,6 +46,8 @@ type Query = Record<string, string | number | boolean | undefined | null>;
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
+  /** A multipart form, for file uploads. Sent instead of body. */
+  form?: FormData;
   query?: Query;
   signal?: AbortSignal;
 }
@@ -63,15 +65,19 @@ export function buildPath(path: string, query?: Query): string {
 
 async function send(path: string, options: RequestOptions, accept: string): Promise<Response> {
   const headers: Record<string, string> = { Accept: accept };
-  if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  if (options.body !== undefined && !options.form) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
+
+  let body: BodyInit | undefined;
+  if (options.form) body = options.form;
+  else if (options.body !== undefined) body = JSON.stringify(options.body);
 
   let res: Response;
   try {
     res = await fetch(`/api${buildPath(path, options.query)}`, {
       method: options.method ?? 'GET',
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body,
       signal: options.signal,
     });
   } catch (err) {

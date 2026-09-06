@@ -21,6 +21,7 @@ import { listActivity } from '../api/activity';
 import { deletePayment } from '../api/rent';
 import type { ChargeInput, DepositInput, LeaseInput, PaymentInput, RenewalInput, RentChangeInput } from '../api/types';
 import ActivityList from '../components/ActivityList';
+import Documents from '../components/Documents';
 import ChargeForm from '../components/forms/ChargeForm';
 import DepositForm from '../components/forms/DepositForm';
 import LeaseForm from '../components/forms/LeaseForm';
@@ -433,6 +434,8 @@ export default function LeaseDetailPage() {
         )}
         <FormError error={removeDeposit.error} />
       </section>
+
+      <Documents target={{ lease_id: l.id }} hint="Keep the signed lease, inspection reports and notices here." />
 
       {history.data && history.data.length > 0 && (
         <section className="card">

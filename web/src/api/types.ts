@@ -440,3 +440,17 @@ export interface Activity {
   summary: string;
   created_at: string;
 }
+
+export interface Document {
+  id: string;
+  tenant_id: string | null;
+  lease_id: string | null;
+  property_id: string | null;
+  filename: string;
+  content_type: string;
+  size_bytes: number;
+  notes: string;
+  created_at: string;
+}
+
+export type DocumentTarget = { tenant_id: string } | { lease_id: string } | { property_id: string };

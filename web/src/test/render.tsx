@@ -19,7 +19,8 @@ export function mockFetch(routes: Record<string, { status?: number; body?: unkno
   const fn = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
     const method = init?.method ?? 'GET';
-    calls.push({ method, url, body: init?.body ? JSON.parse(String(init.body)) : undefined });
+    const body = typeof init?.body === 'string' ? JSON.parse(init.body) : init?.body;
+    calls.push({ method, url, body });
     const path = url.split('?')[0] ?? url;
     const route = routes[`${method} ${path}`];
     if (!route) {

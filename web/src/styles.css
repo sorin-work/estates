@@ -516,8 +516,8 @@ h3 {
   white-space: nowrap;
 }
 
-.row-bad td:first-child {
-  box-shadow: inset 3px 0 0 var(--bad);
+.table .row-bad td {
+  background: #fdf5f4;
 }
 
 .row-actions {

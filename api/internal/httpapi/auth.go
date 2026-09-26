@@ -122,11 +122,15 @@ func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) error {
 	if in.Currency == "" {
 		in.Currency = "USD"
 	}
+	if in.DepositReturnDays == 0 {
+		in.DepositReturnDays = domain.DefaultDepositReturnDays
+	}
 
 	var v validator
 	v.required(in.Name, "name")
 	v.maxLen(in.Name, "name", 100)
 	v.check(domain.OneOf(in.Currency, domain.Currencies), "currency", "is not a supported currency")
+	v.check(in.DepositReturnDays >= 1 && in.DepositReturnDays <= 90, "deposit_return_days", "must be between 1 and 90")
 	if err := v.err(); err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/sorin-work/estates/api/internal/domain"
 	"github.com/sorin-work/estates/api/internal/store"
 )
 
@@ -88,5 +89,25 @@ func TestRenewLease(t *testing.T) {
 	c.mustStatus(http.StatusOK, "GET", "/api/dashboard", nil).decode(t, &dash)
 	if len(dash.ExpiringLeases) != 0 {
 		t.Errorf("renewed lease still expiring: %+v", dash.ExpiringLeases)
+	}
+}
+
+func TestReminders(t *testing.T) {
+	c := newDBServer(t, "2026-11-20")
+	l := newLease(t, c, nil)
+
+	var got []domain.Reminder
+	c.mustStatus(http.StatusOK, "GET", "/api/reminders", nil).decode(t, &got)
+	if len(got) != 1 || got[0].Kind != domain.ReminderLeaseEnding || got[0].LeaseID != l.ID || got[0].Title != "Lease ends in 41 days" {
+		t.Fatalf("reminders %+v", got)
+	}
+
+	// Once renewed there is nothing to do.
+	c.mustStatus(http.StatusCreated, "POST", "/api/leases/"+l.ID+"/renew", map[string]any{
+		"end_date": "2027-12-31", "rent_cents": 150000,
+	})
+	c.mustStatus(http.StatusOK, "GET", "/api/reminders", nil).decode(t, &got)
+	if len(got) != 0 {
+		t.Errorf("after renewal %+v", got)
 	}
 }

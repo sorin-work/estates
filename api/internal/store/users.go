@@ -6,15 +6,18 @@ import (
 )
 
 type User struct {
-	ID           string    `db:"id" json:"id"`
-	Email        string    `db:"email" json:"email"`
-	Name         string    `db:"name" json:"name"`
-	PasswordHash string    `db:"password_hash" json:"-"`
-	Currency     string    `db:"currency" json:"currency"`
-	CreatedAt    time.Time `db:"created_at" json:"created_at"`
+	ID           string `db:"id" json:"id"`
+	Email        string `db:"email" json:"email"`
+	Name         string `db:"name" json:"name"`
+	PasswordHash string `db:"password_hash" json:"-"`
+	Currency     string `db:"currency" json:"currency"`
+	// DepositReturnDays is the deadline for returning a deposit after the
+	// tenant moves out.
+	DepositReturnDays int       `db:"deposit_return_days" json:"deposit_return_days"`
+	CreatedAt         time.Time `db:"created_at" json:"created_at"`
 }
 
-const userColumns = `id, email, name, password_hash, currency, created_at`
+const userColumns = `id, email, name, password_hash, currency, deposit_return_days, created_at`
 
 // CreateUser inserts a user. It returns ErrConflict if the email is taken.
 func (s *Store) CreateUser(ctx context.Context, email, name, passwordHash string) (User, error) {
@@ -42,14 +45,15 @@ func (s *Store) UserByID(ctx context.Context, id string) (User, error) {
 
 // UserSettings are the account details a user can change themselves.
 type UserSettings struct {
-	Name     string `json:"name"`
-	Currency string `json:"currency"`
+	Name              string `json:"name"`
+	Currency          string `json:"currency"`
+	DepositReturnDays int    `json:"deposit_return_days"`
 }
 
 func (s *Store) UpdateUser(ctx context.Context, id string, in UserSettings) error {
 	return execOne(s.pool.Exec(ctx, `
-		UPDATE users SET name = $2, currency = $3, updated_at = now() WHERE id = $1`,
-		id, in.Name, in.Currency))
+		UPDATE users SET name = $2, currency = $3, deposit_return_days = $4, updated_at = now() WHERE id = $1`,
+		id, in.Name, in.Currency, in.DepositReturnDays))
 }
 
 func (s *Store) SetPassword(ctx context.Context, id, passwordHash string) error {

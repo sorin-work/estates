@@ -66,7 +66,7 @@ func (f *fakeStore) UpdateUser(_ context.Context, id string, in store.UserSettin
 	if !ok {
 		return store.ErrNotFound
 	}
-	u.Name, u.Currency = in.Name, in.Currency
+	u.Name, u.Currency, u.DepositReturnDays = in.Name, in.Currency, in.DepositReturnDays
 	f.users[id] = u
 	return nil
 }
@@ -196,14 +196,14 @@ func TestUpdateSettings(t *testing.T) {
 	}
 
 	var me store.User
-	c.mustStatus(http.StatusOK, "PUT", "/api/auth/me", map[string]string{"name": " Lee Smith ", "currency": "eur"}).decode(t, &me)
-	if me.Name != "Lee Smith" || me.Currency != "EUR" {
+	c.mustStatus(http.StatusOK, "PUT", "/api/auth/me", map[string]any{"name": " Lee Smith ", "currency": "eur", "deposit_return_days": 21}).decode(t, &me)
+	if me.Name != "Lee Smith" || me.Currency != "EUR" || me.DepositReturnDays != 21 {
 		t.Errorf("updated %+v", me)
 	}
 
-	res := c.mustStatus(http.StatusUnprocessableEntity, "PUT", "/api/auth/me", map[string]string{"name": "", "currency": "XYZ"})
+	res := c.mustStatus(http.StatusUnprocessableEntity, "PUT", "/api/auth/me", map[string]any{"name": "", "currency": "XYZ", "deposit_return_days": 365})
 	fields := res.errorFields(t)
-	if fields["name"] == "" || fields["currency"] == "" {
+	if fields["name"] == "" || fields["currency"] == "" || fields["deposit_return_days"] == "" {
 		t.Errorf("fields %v", fields)
 	}
 }

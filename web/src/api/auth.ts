@@ -13,7 +13,7 @@ export function me() {
   return api<User>('/auth/me');
 }
 
-export function updateMe(input: { name: string; currency: string }) {
+export function updateMe(input: { name: string; currency: string; deposit_return_days: number }) {
   return api<User>('/auth/me', { method: 'PUT', body: input });
 }
 

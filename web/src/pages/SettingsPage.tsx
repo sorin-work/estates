@@ -11,6 +11,7 @@ function ProfileForm() {
   const { user, updateUser } = useAuth();
   const [name, setName] = useState(user?.name ?? '');
   const [currency, setCurrency] = useState(user?.currency ?? 'USD');
+  const [returnDays, setReturnDays] = useState(String(user?.deposit_return_days ?? 30));
   const [saved, setSaved] = useState(false);
   const { submitting, error, errors, run } = useFormSubmit();
 
@@ -18,7 +19,7 @@ function ProfileForm() {
     e.preventDefault();
     setSaved(false);
     void run(async () => {
-      updateUser(await updateMe({ name, currency }));
+      updateUser(await updateMe({ name, currency, deposit_return_days: Number(returnDays) || 0 }));
       setSaved(true);
     });
   }
@@ -39,6 +40,22 @@ function ProfileForm() {
               </option>
             ))}
           </select>
+        )}
+      </Field>
+      <Field
+        label="Deposit return deadline"
+        error={errors.deposit_return_days}
+        hint="Days after move-out to return a deposit. Check your state's rules."
+      >
+        {(id) => (
+          <input
+            id={id}
+            type="number"
+            min={1}
+            max={90}
+            value={returnDays}
+            onChange={(e) => setReturnDays(e.target.value)}
+          />
         )}
       </Field>
       <div className="form-actions">

@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { getDashboard } from '../api/dashboard';
 import IncomeChart from '../components/charts/IncomeChart';
 import PageHeader from '../components/PageHeader';
+import Reminders from '../components/Reminders';
 import StatCard from '../components/StatCard';
 import { EmptyState, ErrorState, Loading } from '../components/States';
 import { PriorityBadge } from '../components/StatusBadge';
@@ -33,6 +34,7 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeader title="Dashboard" subtitle={`Overview for ${formatMonthLong(month.month)}`} />
+      <Reminders />
 
       <div className="stats">
         <StatCard

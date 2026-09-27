@@ -1199,3 +1199,17 @@ input[type='checkbox'] {
   text-align: left;
   font-weight: 600;
 }
+
+.reminder.urgent {
+  box-shadow: inset 3px 0 0 var(--bad);
+  padding-left: 0.75rem;
+}
+
+.reminder.warning {
+  box-shadow: inset 3px 0 0 var(--amber);
+  padding-left: 0.75rem;
+}
+
+.reminder.info {
+  padding-left: 0.75rem;
+}

@@ -59,10 +59,30 @@ const dashboard: Dashboard = {
 
 describe('DashboardPage', () => {
   it('shows occupancy, collections and who is behind', async () => {
-    mockFetch({ 'GET /api/dashboard': { body: dashboard } });
+    mockFetch({
+      'GET /api/dashboard': { body: dashboard },
+      'GET /api/reminders': {
+        body: [
+          {
+            kind: 'deposit_return',
+            severity: 'urgent',
+            title: 'Return the deposit in 5 days',
+            detail: 'Marcus Reed at Harbor View Apartments unit 203 moved out on 2026-11-01.',
+            date: '2026-12-01',
+            lease_id: 'l9',
+          },
+        ],
+      },
+    });
     renderWithProviders(<DashboardPage />);
 
     expect(await screen.findByText('90%')).toBeInTheDocument();
+    const todo = (await screen.findByRole('heading', { name: 'To do' })).closest('section')!;
+    expect(within(todo).getByRole('link', { name: /Return the deposit in 5 days/ })).toHaveAttribute(
+      'href',
+      '/leases/l9',
+    );
+    expect(within(todo).getByText('Urgent')).toBeInTheDocument();
     expect(screen.getByText('9 of 10 units let · 1 vacant')).toBeInTheDocument();
     expect(screen.getByText('$12,000.00')).toBeInTheDocument();
     expect(screen.getByText('of $15,000.00 charged (80%)')).toBeInTheDocument();

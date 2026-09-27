@@ -9,7 +9,14 @@ import { formatMoney, setCurrency } from '../lib/money';
 import { mockFetch, renderWithProviders } from '../test/render';
 import SettingsPage from './SettingsPage';
 
-const user = { id: 'u1', email: 'demo@example.com', name: 'Demo', currency: 'USD', created_at: '' };
+const user = {
+  id: 'u1',
+  email: 'demo@example.com',
+  name: 'Demo',
+  currency: 'USD',
+  deposit_return_days: 30,
+  created_at: '',
+};
 
 function renderSettings() {
   setToken('tok-123');
@@ -45,7 +52,7 @@ describe('SettingsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByText('Saved')).toBeInTheDocument();
-    expect(calls.at(-1)?.body).toEqual({ name: 'Demo Landlord', currency: 'EUR' });
+    expect(calls.at(-1)?.body).toEqual({ name: 'Demo Landlord', currency: 'EUR', deposit_return_days: 30 });
     expect(formatMoney(100)).toBe('€1.00');
   });
 

@@ -7,6 +7,7 @@ export interface User {
   email: string;
   name: string;
   currency: string;
+  deposit_return_days: number;
   created_at: string;
 }
 
@@ -454,3 +455,16 @@ export interface Document {
 }
 
 export type DocumentTarget = { tenant_id: string } | { lease_id: string } | { property_id: string };
+
+export type ReminderKind = 'lease_ending' | 'deposit_return' | 'rent_increase' | 'move_in' | 'maintenance';
+export type ReminderSeverity = 'urgent' | 'warning' | 'info';
+
+export interface Reminder {
+  kind: ReminderKind;
+  severity: ReminderSeverity;
+  title: string;
+  detail: string;
+  date: ISODate;
+  lease_id?: string;
+  maintenance_id?: string;
+}

@@ -67,3 +67,37 @@ func TestVendorFlow(t *testing.T) {
 		t.Errorf("job after deleting vendor %+v", job)
 	}
 }
+
+func TestSearch(t *testing.T) {
+	c := newDBServer(t, "2026-10-10")
+	newLease(t, c, nil)
+	c.mustStatus(http.StatusCreated, "POST", "/api/vendors", map[string]any{"name": "Alder Electric", "trade": "electrical"})
+	c.mustStatus(http.StatusCreated, "POST", "/api/tenants", map[string]any{"first_name": "Al", "last_name": "Green", "email": "al@example.com"})
+
+	var hits []store.SearchHit
+	c.mustStatus(http.StatusOK, "GET", "/api/search?q=alder", nil).decode(t, &hits)
+	kinds := map[string]string{}
+	for _, h := range hits {
+		kinds[h.Kind] = h.Title
+		if h.Kind == "unit" && h.PropertyID == "" {
+			t.Errorf("unit hit without its property: %+v", h)
+		}
+	}
+	if kinds["property"] != "Alder House" || kinds["unit"] != "Alder House · Main" || kinds["vendor"] != "Alder Electric" || len(hits) != 3 {
+		t.Errorf("hits %+v", hits)
+	}
+
+	c.mustStatus(http.StatusOK, "GET", "/api/search?q=al%40example", nil).decode(t, &hits)
+	if len(hits) != 1 || hits[0].Kind != "tenant" || hits[0].Title != "Al Green" || hits[0].Detail != "al@example.com" {
+		t.Errorf("tenant by email %+v", hits)
+	}
+
+	c.mustStatus(http.StatusOK, "GET", "/api/search?q=a", nil).decode(t, &hits)
+	if len(hits) != 0 {
+		t.Errorf("one letter matched %d", len(hits))
+	}
+	c.mustStatus(http.StatusOK, "GET", "/api/search?q=%25%25", nil).decode(t, &hits)
+	if len(hits) != 0 {
+		t.Errorf("wildcards matched %d", len(hits))
+	}
+}

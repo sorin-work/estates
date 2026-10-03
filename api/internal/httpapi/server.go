@@ -34,6 +34,7 @@ type Store interface {
 	reportStore
 	activityStore
 	documentStore
+	searchStore
 	dashboardStore
 }
 
@@ -126,6 +127,7 @@ func (s *Server) Handler() http.Handler {
 			r.Get("/dashboard", s.handle(s.dashboard))
 			r.Get("/activity", s.handle(s.listActivity))
 			r.Get("/reminders", s.handle(s.reminders))
+			r.Get("/search", s.handle(s.search))
 		})
 	})
 	return r

@@ -468,3 +468,11 @@ export interface Reminder {
   lease_id?: string;
   maintenance_id?: string;
 }
+
+export interface SearchHit {
+  kind: 'property' | 'unit' | 'tenant' | 'vendor';
+  id: string;
+  title: string;
+  detail: string;
+  property_id?: string;
+}

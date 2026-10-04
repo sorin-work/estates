@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { useAuth } from '../auth/AuthContext';
+import SearchBox from './SearchBox';
 
 const nav = [
   { to: '/', label: 'Dashboard', end: true },
@@ -26,6 +27,7 @@ export default function Layout() {
           <img src="/favicon.svg" alt="" width={28} height={28} />
           <span>Estates</span>
         </div>
+        <SearchBox onNavigate={() => setOpen(false)} />
         <nav>
           {nav.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setOpen(false)}>

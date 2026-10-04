@@ -1213,3 +1213,69 @@ input[type='checkbox'] {
 .reminder.info {
   padding-left: 0.75rem;
 }
+
+/* Quick search */
+
+.search {
+  position: relative;
+  padding: 0 1rem 0.75rem;
+}
+
+.search input {
+  width: 100%;
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  color: #fff;
+}
+
+.search input::placeholder {
+  color: #9fb3aa;
+}
+
+.search-results {
+  position: absolute;
+  z-index: 20;
+  left: 1rem;
+  right: -12rem;
+  top: 100%;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
+}
+
+.search-results li {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 0 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.search-results li.active,
+.search-results li:hover {
+  background: var(--brand-soft);
+}
+
+.search-kind {
+  grid-row: span 2;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  padding-top: 0.15rem;
+}
+
+.search-detail {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.search-empty {
+  color: var(--muted);
+  cursor: default;
+}

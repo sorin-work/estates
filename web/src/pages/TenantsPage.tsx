@@ -1,20 +1,12 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { createTenant, listTenants } from '../api/tenants';
 import TenantForm from '../components/forms/TenantForm';
 import Modal from '../components/Modal';
 import PageHeader from '../components/PageHeader';
 import { EmptyState, ErrorState, Loading } from '../components/States';
-
-function useDebounced<T>(value: T, ms: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return debounced;
-}
+import { useDebounced } from '../lib/hooks';
 
 export default function TenantsPage() {
   const queryClient = useQueryClient();

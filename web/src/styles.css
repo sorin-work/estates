@@ -15,6 +15,9 @@
   --blue: #1e5aa8;
   --blue-soft: #e6eef9;
   --gray-soft: #eef0ee;
+  --row-bad: #fdf5f4;
+  --chart-expense: #d9a441;
+  --input-bg: #ffffff;
   --radius: 10px;
   --shadow: 0 1px 2px rgb(0 0 0 / 0.05);
   --sidebar: 220px;
@@ -30,6 +33,60 @@
   line-height: 1.5;
   color: var(--text);
   background: var(--bg);
+  color-scheme: light;
+}
+
+/* Dark theme: follows the system unless a theme is picked in settings. */
+:root[data-theme='dark'] {
+  --bg: #111614;
+  --surface: #1a211e;
+  --border: #2c3531;
+  --text: #e3e9e6;
+  --muted: #98a59f;
+  --brand: #4fb89a;
+  --brand-dark: #6fcbb0;
+  --brand-soft: #1d3a31;
+  --good: #5cc28b;
+  --bad: #f2827a;
+  --bad-soft: #3a1f1d;
+  --amber: #e2b04f;
+  --amber-soft: #3a2f17;
+  --blue: #7fb0ef;
+  --blue-soft: #1c2b40;
+  --gray-soft: #262e2b;
+  --row-bad: #2a1c1b;
+  --chart-expense: #c9963a;
+  --input-bg: #141a17;
+  --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: #111614;
+    --surface: #1a211e;
+    --border: #2c3531;
+    --text: #e3e9e6;
+    --muted: #98a59f;
+    --brand: #4fb89a;
+    --brand-dark: #6fcbb0;
+    --brand-soft: #1d3a31;
+    --good: #5cc28b;
+    --bad: #f2827a;
+    --bad-soft: #3a1f1d;
+    --amber: #e2b04f;
+    --amber-soft: #3a2f17;
+    --blue: #7fb0ef;
+    --blue-soft: #1c2b40;
+    --gray-soft: #262e2b;
+    --row-bad: #2a1c1b;
+    --chart-expense: #c9963a;
+    --input-bg: #141a17;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+
+    color-scheme: dark;
+  }
 }
 
 * {
@@ -517,7 +574,7 @@ h3 {
 }
 
 .table .row-bad td {
-  background: #fdf5f4;
+  background: var(--row-bad);
 }
 
 .row-actions {
@@ -658,7 +715,7 @@ textarea {
   padding: 0.5rem 0.65rem;
   border: 1px solid var(--border);
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--input-bg);
 }
 
 input:focus,
@@ -981,7 +1038,7 @@ input[type='checkbox'] {
 }
 
 .bar-expense {
-  fill: #d9a441;
+  fill: var(--chart-expense);
 }
 
 .legend {
@@ -1005,7 +1062,7 @@ input[type='checkbox'] {
 }
 
 .swatch.expense {
-  background: #d9a441;
+  background: var(--chart-expense);
 }
 
 .bars {

@@ -6,6 +6,7 @@ import PageHeader from '../components/PageHeader';
 import { FormError } from '../components/States';
 import { useFormSubmit } from '../components/useFormSubmit';
 import { currencies } from '../lib/labels';
+import { getTheme, setTheme, type Theme } from '../lib/theme';
 
 function ProfileForm() {
   const { user, updateUser } = useAuth();
@@ -133,6 +134,29 @@ function PasswordForm() {
   );
 }
 
+function AppearanceForm() {
+  const [theme, setThemeState] = useState<Theme>(getTheme);
+  return (
+    <Field label="Theme" hint="Saved in this browser.">
+      {(id) => (
+        <select
+          id={id}
+          value={theme}
+          onChange={(e) => {
+            const next = e.target.value as Theme;
+            setThemeState(next);
+            setTheme(next);
+          }}
+        >
+          <option value="system">Same as the system</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      )}
+    </Field>
+  );
+}
+
 export default function SettingsPage() {
   return (
     <>
@@ -143,6 +167,12 @@ export default function SettingsPage() {
             <h2>Account</h2>
           </div>
           <ProfileForm />
+        </section>
+        <section className="card">
+          <div className="card-header">
+            <h2>Appearance</h2>
+          </div>
+          <AppearanceForm />
         </section>
         <section className="card">
           <div className="card-header">

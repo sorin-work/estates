@@ -4,8 +4,11 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import App from './App';
 import { AuthProvider } from './auth/AuthContext';
+import { applyTheme, getTheme } from './lib/theme';
 import { createQueryClient } from './queryClient';
 import './styles.css';
+
+applyTheme(getTheme());
 
 const queryClient = createQueryClient();
 

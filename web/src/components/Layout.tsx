@@ -22,13 +22,16 @@ export default function Layout() {
 
   return (
     <div className="app">
-      <aside className={open ? 'sidebar open' : 'sidebar'}>
+      <a className="skip-link" href="#content">
+        Skip to content
+      </a>
+      <aside id="sidebar" className={open ? 'sidebar open' : 'sidebar'}>
         <div className="brand">
           <img src="/favicon.svg" alt="" width={28} height={28} />
           <span>Estates</span>
         </div>
         <SearchBox onNavigate={() => setOpen(false)} />
-        <nav>
+        <nav aria-label="Main">
           {nav.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setOpen(false)}>
               {item.label}
@@ -51,12 +54,19 @@ export default function Layout() {
       </aside>
       <div className="main">
         <header className="topbar">
-          <button type="button" className="menu-button" aria-label="Toggle navigation" onClick={() => setOpen(!open)}>
+          <button
+            type="button"
+            className="menu-button"
+            aria-label="Toggle navigation"
+            aria-expanded={open}
+            aria-controls="sidebar"
+            onClick={() => setOpen(!open)}
+          >
             ☰
           </button>
           <span className="topbar-title">Estates</span>
         </header>
-        <main className="content">
+        <main className="content" id="content" tabIndex={-1}>
           <Outlet />
         </main>
       </div>

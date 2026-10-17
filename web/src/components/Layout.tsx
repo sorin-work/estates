@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { NavLink, Outlet } from 'react-router';
 import { useAuth } from '../auth/AuthContext';
 import SearchBox from './SearchBox';
+import { Loading } from './States';
 
 const nav = [
   { to: '/', label: 'Dashboard', end: true },
@@ -67,7 +68,10 @@ export default function Layout() {
           <span className="topbar-title">Estates</span>
         </header>
         <main className="content" id="content" tabIndex={-1}>
-          <Outlet />
+          {/* Pages load on demand; keep the sidebar while one does. */}
+          <Suspense fallback={<Loading />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

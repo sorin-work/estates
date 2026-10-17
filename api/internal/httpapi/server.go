@@ -90,6 +90,8 @@ func (s *Server) Handler() http.Handler {
 	r.Use(s.logRequests)
 	r.Use(s.recoverPanics)
 	r.Use(s.cors)
+	// Lists and exports are mostly repeated text and shrink a lot.
+	r.Use(middleware.Compress(5, "application/json", "text/csv"))
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "no such endpoint")

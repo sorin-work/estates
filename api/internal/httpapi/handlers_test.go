@@ -1,9 +1,11 @@
 package httpapi
 
 import (
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -385,5 +387,24 @@ func TestCORS(t *testing.T) {
 	h.ServeHTTP(rec, req)
 	if rec.Header().Get("Access-Control-Allow-Origin") != "" {
 		t.Error("unknown origin was allowed")
+	}
+}
+
+func TestResponsesAreCompressed(t *testing.T) {
+	_, c := newTestServer(t, newFakeStore())
+	req := httptest.NewRequest("POST", "/api/auth/register", strings.NewReader(`{}`))
+	req.Header.Set("Accept-Encoding", "gzip")
+	rec := httptest.NewRecorder()
+	c.handler.ServeHTTP(rec, req)
+	if rec.Header().Get("Content-Encoding") != "gzip" {
+		t.Fatalf("headers %v", rec.Header())
+	}
+	zr, err := gzip.NewReader(rec.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(zr)
+	if !strings.Contains(string(body), "validation_failed") {
+		t.Errorf("body %s", body)
 	}
 }

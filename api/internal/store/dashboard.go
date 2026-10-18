@@ -36,30 +36,48 @@ type MonthTotal struct {
 
 // MonthlyTotals returns one row per month from from's month to to's month,
 // including months with no activity. Charges count rent and fees falling due
-// in the month, collected counts payments received in it.
+// in the month, collected counts payments received in it. Each table is
+// summed once for the whole range rather than once per month.
 func (s *Store) MonthlyTotals(ctx context.Context, ownerID string, from, to domain.Date, propertyID string) ([]MonthTotal, error) {
 	rows, err := s.pool.Query(ctx, `
-		WITH months AS (
-		    SELECT generate_series(date_trunc('month', $2::date), date_trunc('month', $3::date), interval '1 month')::date AS m
+		WITH bounds AS (
+		    SELECT date_trunc('month', $2::date)::date AS first,
+		           (date_trunc('month', $3::date) + interval '1 month')::date AS after
+		), months AS (
+		    SELECT generate_series(first, after - 1, interval '1 month')::date AS m FROM bounds
 		), owned AS (
 		    SELECT l.id FROM leases l
 		      JOIN units u ON u.id = l.unit_id
 		      JOIN properties p ON p.id = u.property_id AND p.owner_id = $1
 		     WHERE $4 = '' OR p.id::text = $4
+		), charged AS (
+		    SELECT date_trunc('month', c.due_date)::date AS m, sum(c.amount_cents) AS cents
+		      FROM charges c, bounds b
+		     WHERE c.lease_id IN (SELECT id FROM owned) AND c.kind <> 'deposit'
+		       AND c.due_date >= b.first AND c.due_date < b.after
+		     GROUP BY 1
+		), collected AS (
+		    SELECT date_trunc('month', pm.paid_on)::date AS m, sum(pm.amount_cents) AS cents
+		      FROM payments pm, bounds b
+		     WHERE pm.lease_id IN (SELECT id FROM owned)
+		       AND pm.paid_on >= b.first AND pm.paid_on < b.after
+		     GROUP BY 1
+		), spent AS (
+		    SELECT date_trunc('month', e.spent_on)::date AS m, sum(e.amount_cents) AS cents
+		      FROM expenses e
+		      JOIN properties p ON p.id = e.property_id AND p.owner_id = $1, bounds b
+		     WHERE ($4 = '' OR p.id::text = $4)
+		       AND e.spent_on >= b.first AND e.spent_on < b.after
+		     GROUP BY 1
 		)
 		SELECT to_char(months.m, 'YYYY-MM') AS month,
-		       COALESCE((SELECT sum(c.amount_cents) FROM charges c
-		                  WHERE c.lease_id IN (SELECT id FROM owned)
-		                    AND c.kind <> 'deposit'
-		                    AND date_trunc('month', c.due_date) = months.m), 0)::bigint AS charged_cents,
-		       COALESCE((SELECT sum(pm.amount_cents) FROM payments pm
-		                  WHERE pm.lease_id IN (SELECT id FROM owned)
-		                    AND date_trunc('month', pm.paid_on) = months.m), 0)::bigint AS collected_cents,
-		       COALESCE((SELECT sum(e.amount_cents) FROM expenses e
-		                   JOIN properties p ON p.id = e.property_id AND p.owner_id = $1
-		                  WHERE ($4 = '' OR p.id::text = $4)
-		                    AND date_trunc('month', e.spent_on) = months.m), 0)::bigint AS expenses_cents
+		       COALESCE(charged.cents, 0)::bigint AS charged_cents,
+		       COALESCE(collected.cents, 0)::bigint AS collected_cents,
+		       COALESCE(spent.cents, 0)::bigint AS expenses_cents
 		  FROM months
+		  LEFT JOIN charged ON charged.m = months.m
+		  LEFT JOIN collected ON collected.m = months.m
+		  LEFT JOIN spent ON spent.m = months.m
 		 ORDER BY months.m`, ownerID, from, to, propertyID)
 	return collectAll[MonthTotal](rows, err)
 }

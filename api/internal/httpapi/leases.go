@@ -202,12 +202,14 @@ func (s *Server) terminateLease(w http.ResponseWriter, r *http.Request) error {
 	if err := s.store.TerminateLease(r.Context(), userID(r), id, in.Date); err != nil {
 		return notFoundAs(err, "lease")
 	}
-	l, err := s.store.GetLease(r.Context(), userID(r), id)
+	// Moving the termination later brings back rent for the months in
+	// between, so bill straight away like any other change to the dates.
+	l, err := s.billNow(r.Context(), userID(r), id)
 	if err != nil {
 		return err
 	}
 	s.audit(r, "lease", l.ID, l.ID, "terminated", "Lease of "+l.TenantName+" ended early on "+in.Date.String())
-	writeJSON(w, http.StatusOK, s.withStatus(l))
+	writeJSON(w, http.StatusOK, l)
 	return nil
 }
 

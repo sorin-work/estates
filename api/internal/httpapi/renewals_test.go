@@ -111,3 +111,23 @@ func TestReminders(t *testing.T) {
 		t.Errorf("after renewal %+v", got)
 	}
 }
+
+func TestMovingTheTerminationLaterRestoresRent(t *testing.T) {
+	c := newDBServer(t, "2026-05-10")
+	l := newLease(t, c, map[string]any{"rent_cents": 100000})
+
+	c.mustStatus(http.StatusOK, "POST", "/api/leases/"+l.ID+"/terminate", map[string]string{"date": "2026-03-15"})
+	var ledger ledgerResponse
+	c.mustStatus(http.StatusOK, "GET", "/api/leases/"+l.ID+"/ledger", nil).decode(t, &ledger)
+	// January, February and half of March (15 of 31 days).
+	if ledger.ChargedCents != 200000+48387 {
+		t.Fatalf("charged %d", ledger.ChargedCents)
+	}
+
+	// The tenant stayed after all, until the end of April.
+	c.mustStatus(http.StatusOK, "POST", "/api/leases/"+l.ID+"/terminate", map[string]string{"date": "2026-04-30"})
+	c.mustStatus(http.StatusOK, "GET", "/api/leases/"+l.ID+"/ledger", nil).decode(t, &ledger)
+	if ledger.ChargedCents != 400000 || len(ledger.Charges) != 4 {
+		t.Errorf("charged %d in %d charges", ledger.ChargedCents, len(ledger.Charges))
+	}
+}

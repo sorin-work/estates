@@ -14,6 +14,7 @@ type paymentStore interface {
 	ListPayments(ctx context.Context, ownerID string, f store.PaymentFilter) ([]store.Payment, int, error)
 	GetPayment(ctx context.Context, ownerID, id string) (store.Payment, error)
 	CreatePayment(ctx context.Context, ownerID, leaseID string, in store.PaymentInput) (string, error)
+	UpdatePayment(ctx context.Context, ownerID, id string, in store.PaymentInput) error
 	DeletePayment(ctx context.Context, ownerID, id string) error
 	LedgerEntries(ctx context.Context, ownerID, leaseID string) (map[string]*store.LedgerEntries, error)
 }
@@ -22,6 +23,7 @@ func (s *Server) paymentRoutes(r chi.Router) {
 	r.Get("/", s.handle(s.listPayments))
 	r.Get("/export.csv", s.handle(s.exportPayments))
 	r.Get("/{id}/receipt", s.handle(s.paymentReceipt))
+	r.Put("/{id}", s.handle(s.updatePayment))
 	r.Delete("/{id}", s.handle(s.deletePayment))
 }
 
@@ -72,14 +74,10 @@ func (s *Server) listPayments(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) error {
-	leaseID, err := pathID(r, "lease")
-	if err != nil {
-		return err
-	}
+func (s *Server) decodePayment(w http.ResponseWriter, r *http.Request) (store.PaymentInput, error) {
 	var in store.PaymentInput
 	if err := decode(w, r, &in); err != nil {
-		return err
+		return in, err
 	}
 	trim(&in.Method, &in.Reference, &in.Notes)
 	if in.Method == "" {
@@ -93,7 +91,16 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) error {
 	v.check(domain.OneOf(in.Method, domain.PaymentMethods), "method", "is not a known payment method")
 	v.maxLen(in.Reference, "reference", 100)
 	v.maxLen(in.Notes, "notes", 1000)
-	if err := v.err(); err != nil {
+	return in, v.err()
+}
+
+func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) error {
+	leaseID, err := pathID(r, "lease")
+	if err != nil {
+		return err
+	}
+	in, err := s.decodePayment(w, r)
+	if err != nil {
 		return err
 	}
 
@@ -107,6 +114,27 @@ func (s *Server) createPayment(w http.ResponseWriter, r *http.Request) error {
 	}
 	s.audit(r, "payment", p.ID, p.LeaseID, "created", "Payment of "+money(p.AmountCents)+" from "+p.TenantName+" on "+p.PaidOn.String())
 	writeJSON(w, http.StatusCreated, p)
+	return nil
+}
+
+func (s *Server) updatePayment(w http.ResponseWriter, r *http.Request) error {
+	id, err := pathID(r, "payment")
+	if err != nil {
+		return err
+	}
+	in, err := s.decodePayment(w, r)
+	if err != nil {
+		return err
+	}
+	if err := s.store.UpdatePayment(r.Context(), userID(r), id, in); err != nil {
+		return notFoundAs(err, "payment")
+	}
+	p, err := s.store.GetPayment(r.Context(), userID(r), id)
+	if err != nil {
+		return err
+	}
+	s.audit(r, "payment", p.ID, p.LeaseID, "updated", "Corrected the payment from "+p.TenantName+" to "+money(p.AmountCents)+" on "+p.PaidOn.String())
+	writeJSON(w, http.StatusOK, p)
 	return nil
 }
 

@@ -23,6 +23,13 @@ func TestActivityHistory(t *testing.T) {
 	c.mustStatus(http.StatusCreated, "POST", "/api/leases/"+l.ID+"/payments", map[string]any{
 		"amount_cents": 145000, "paid_on": "2026-03-01",
 	}).decode(t, &p)
+	c.mustStatus(http.StatusOK, "PUT", "/api/payments/"+p.ID, map[string]any{
+		"amount_cents": 154000, "paid_on": "2026-03-02", "method": "check", "reference": "#77",
+	}).decode(t, &p)
+	if p.AmountCents != 154000 || p.PaidOn.String() != "2026-03-02" || p.Reference != "#77" || p.ReceiptNumber != 1 {
+		t.Errorf("corrected payment %+v", p)
+	}
+	c.mustStatus(http.StatusUnprocessableEntity, "PUT", "/api/payments/"+p.ID, map[string]any{"amount_cents": 0, "paid_on": "2027-01-01"})
 	c.mustStatus(http.StatusNoContent, "DELETE", "/api/payments/"+p.ID, nil)
 
 	var history []store.Activity
@@ -31,11 +38,11 @@ func TestActivityHistory(t *testing.T) {
 	for _, a := range history {
 		got = append(got, a.EntityType+" "+a.Action)
 	}
-	if strings.Join(got, ", ") != "payment deleted, payment created, lease created" {
+	if strings.Join(got, ", ") != "payment deleted, payment updated, payment created, lease created" {
 		t.Fatalf("lease history %v", got)
 	}
-	if history[1].Summary != "Payment of 1,450.00 from Rosa Parks on 2026-03-01" {
-		t.Errorf("summary %q", history[1].Summary)
+	if history[2].Summary != "Payment of 1,450.00 from Rosa Parks on 2026-03-01" {
+		t.Errorf("summary %q", history[2].Summary)
 	}
 
 	var all []store.Activity
@@ -45,8 +52,8 @@ func TestActivityHistory(t *testing.T) {
 	}
 	var older []store.Activity
 	c.mustStatus(http.StatusOK, "GET", "/api/activity?before="+itoa(all[1].ID), nil).decode(t, &older)
-	// Property and tenant created, then the lease.
-	if len(older) != 3 || older[0].EntityType != "lease" {
+	// The first payment, then the lease, tenant and property.
+	if len(older) != 4 || older[1].EntityType != "lease" {
 		t.Errorf("older %+v", older)
 	}
 

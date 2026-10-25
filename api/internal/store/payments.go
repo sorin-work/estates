@@ -119,6 +119,17 @@ func (s *Store) CreatePayment(ctx context.Context, ownerID, leaseID string, in P
 	return id, err
 }
 
+// UpdatePayment corrects a payment. Its receipt number stays the same.
+func (s *Store) UpdatePayment(ctx context.Context, ownerID, id string, in PaymentInput) error {
+	return execOne(s.pool.Exec(ctx, `
+		UPDATE payments pm
+		   SET amount_cents = $3, paid_on = $4, method = $5, reference = $6, notes = $7
+		  FROM leases l, units u, properties p
+		 WHERE l.id = pm.lease_id AND u.id = l.unit_id AND p.id = u.property_id
+		   AND p.owner_id = $1 AND pm.id = $2`,
+		ownerID, id, in.AmountCents, in.PaidOn, in.Method, in.Reference, in.Notes))
+}
+
 func (s *Store) DeletePayment(ctx context.Context, ownerID, id string) error {
 	return execOne(s.pool.Exec(ctx, `
 		DELETE FROM payments pm USING leases l, units u, properties p

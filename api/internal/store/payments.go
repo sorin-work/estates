@@ -77,12 +77,12 @@ func (s *Store) ListPayments(ctx context.Context, ownerID string, f PaymentFilte
 	}
 
 	q := paymentSelect + w.where() + ` ORDER BY pm.paid_on DESC, pm.created_at DESC`
-	switch {
-	case f.Limit == ExportAll:
-	case f.Limit <= 0 || f.Limit > 500:
-		q += ` LIMIT 50 OFFSET ` + w.arg(max(f.Offset, 0))
-	default:
-		q += ` LIMIT ` + w.arg(f.Limit) + ` OFFSET ` + w.arg(max(f.Offset, 0))
+	if f.Limit != ExportAll {
+		limit := f.Limit
+		if limit <= 0 {
+			limit = 50
+		}
+		q += ` LIMIT ` + w.arg(min(limit, 500)) + ` OFFSET ` + w.arg(max(f.Offset, 0))
 	}
 	rows, err := s.pool.Query(ctx, q, w.args...)
 	payments, err := collectAll[Payment](rows, err)

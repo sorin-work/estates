@@ -444,3 +444,24 @@ func TestTerminationProratesTheFinalMonth(t *testing.T) {
 		t.Errorf("february should be untouched, got %d", charges[1].AmountCents)
 	}
 }
+
+func TestPaymentPageSizeIsCapped(t *testing.T) {
+	f := setup(t)
+	id := f.lease(t, "2026-01-01", "2026-12-31")
+	for i := range 60 {
+		if _, err := f.st.CreatePayment(ctx, f.owner, id, store.PaymentInput{
+			AmountCents: int64(100 + i), PaidOn: d("2026-01-01").AddDays(i), Method: "cash",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for limit, want := range map[int]int{0: 50, 55: 55, 100: 60, 10000: 60} {
+		page, total, err := f.st.ListPayments(ctx, f.owner, store.PaymentFilter{Limit: limit})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(page) != want || total != 60 {
+			t.Errorf("limit %d: %d payments of %d, want %d", limit, len(page), total, want)
+		}
+	}
+}

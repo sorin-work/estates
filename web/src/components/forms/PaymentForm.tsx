@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import type { PaymentInput, PaymentMethod } from '../../api/types';
+import type { Payment, PaymentInput, PaymentMethod } from '../../api/types';
 import { today } from '../../lib/dates';
 import { options, paymentMethods } from '../../lib/labels';
 import { centsToInput, parseMoney } from '../../lib/money';
@@ -9,20 +9,26 @@ import { useFormSubmit } from '../useFormSubmit';
 import MoneyInput from './MoneyInput';
 
 export default function PaymentForm({
+  initial,
   suggestedCents,
   onSubmit,
   onCancel,
 }: {
+  /** A payment being corrected. */
+  initial?: Payment;
   /** Pre-filled amount, usually the balance owed. */
   suggestedCents?: number;
   onSubmit: (input: PaymentInput) => Promise<unknown>;
   onCancel: () => void;
 }) {
-  const [amount, setAmount] = useState(suggestedCents && suggestedCents > 0 ? centsToInput(suggestedCents) : '');
-  const [paidOn, setPaidOn] = useState(today());
-  const [method, setMethod] = useState<PaymentMethod>('bank_transfer');
-  const [reference, setReference] = useState('');
-  const [notes, setNotes] = useState('');
+  const [amount, setAmount] = useState(() => {
+    if (initial) return centsToInput(initial.amount_cents);
+    return suggestedCents && suggestedCents > 0 ? centsToInput(suggestedCents) : '';
+  });
+  const [paidOn, setPaidOn] = useState(initial?.paid_on ?? today());
+  const [method, setMethod] = useState<PaymentMethod>(initial?.method ?? 'bank_transfer');
+  const [reference, setReference] = useState(initial?.reference ?? '');
+  const [notes, setNotes] = useState(initial?.notes ?? '');
   const { submitting, error, errors, run } = useFormSubmit();
 
   function submit(e: FormEvent) {
@@ -70,7 +76,7 @@ export default function PaymentForm({
           Cancel
         </button>
         <button type="submit" className="button" disabled={submitting}>
-          Record payment
+          {initial ? 'Save payment' : 'Record payment'}
         </button>
       </div>
     </form>

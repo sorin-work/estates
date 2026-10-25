@@ -18,8 +18,16 @@ import {
   updateLease,
 } from '../api/leases';
 import { listActivity } from '../api/activity';
-import { deletePayment } from '../api/rent';
-import type { ChargeInput, DepositInput, LeaseInput, PaymentInput, RenewalInput, RentChangeInput } from '../api/types';
+import { deletePayment, updatePayment } from '../api/rent';
+import type {
+  ChargeInput,
+  DepositInput,
+  LeaseInput,
+  Payment,
+  PaymentInput,
+  RenewalInput,
+  RentChangeInput,
+} from '../api/types';
 import ActivityList from '../components/ActivityList';
 import Documents from '../components/Documents';
 import ChargeForm from '../components/forms/ChargeForm';
@@ -51,6 +59,7 @@ export default function LeaseDetailPage() {
   const queryClient = useQueryClient();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [terminateOn, setTerminateOn] = useState(today());
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
 
   const lease = useQuery({ queryKey: ['leases', 'detail', id], queryFn: () => getLease(id) });
   const ledger = useQuery({ queryKey: ['ledger', id], queryFn: () => getLedger(id) });
@@ -137,6 +146,13 @@ export default function LeaseDetailPage() {
   });
   const removeDeposit = useMutation({ mutationFn: deleteDepositTransaction, onSuccess: refresh });
   const removeCharge = useMutation({ mutationFn: deleteCharge, onSuccess: refresh });
+  const correctPayment = useMutation({
+    mutationFn: (input: PaymentInput) => updatePayment(editingPayment?.id ?? '', input),
+    onSuccess: () => {
+      refresh();
+      setEditingPayment(null);
+    },
+  });
   const removePayment = useMutation({ mutationFn: deletePayment, onSuccess: refresh });
 
   if (lease.isPending) return <Loading />;
@@ -306,6 +322,9 @@ export default function LeaseDetailPage() {
                   <td className="num">{formatMoney(p.amount_cents)}</td>
                   <td className="row-actions">
                     <Link to={`/payments/${p.id}/receipt`}>Receipt</Link>
+                    <button type="button" className="link-button" onClick={() => setEditingPayment(p)}>
+                      Edit
+                    </button>
                     <button
                       type="button"
                       className="link-button danger"
@@ -469,6 +488,15 @@ export default function LeaseDetailPage() {
             suggestedCents={ld?.balance_cents}
             onSubmit={(input) => pay.mutateAsync(input)}
             onCancel={close}
+          />
+        </Modal>
+      )}
+      {editingPayment && (
+        <Modal title="Correct payment" onClose={() => setEditingPayment(null)}>
+          <PaymentForm
+            initial={editingPayment}
+            onSubmit={(input) => correctPayment.mutateAsync(input)}
+            onCancel={() => setEditingPayment(null)}
           />
         </Modal>
       )}

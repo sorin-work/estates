@@ -48,4 +48,31 @@ describe('PaymentForm', () => {
     expect(await screen.findByText('cannot be in the future')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('Please fix the highlighted fields.');
   });
+
+  it('corrects an existing payment', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const payment = {
+      id: 'pm1',
+      lease_id: 'l1',
+      tenant_name: 'Tom Becker',
+      property_id: 'p1',
+      property_name: 'Harbor View Apartments',
+      unit_label: '102',
+      amount_cents: 139500,
+      paid_on: '2026-09-02',
+      method: 'check' as const,
+      reference: '#1088',
+      notes: '',
+      receipt_number: 12,
+    };
+    render(<PaymentForm initial={payment} onSubmit={onSubmit} onCancel={() => {}} />);
+    expect(screen.getByLabelText('Amount')).toHaveValue('1395.00');
+    expect(screen.getByLabelText('Received on')).toHaveValue('2026-09-02');
+    expect(screen.getByLabelText('Reference')).toHaveValue('#1088');
+
+    await userEvent.clear(screen.getByLabelText('Amount'));
+    await userEvent.type(screen.getByLabelText('Amount'), '1359');
+    await userEvent.click(screen.getByRole('button', { name: 'Save payment' }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amount_cents: 135900, method: 'check' }));
+  });
 });

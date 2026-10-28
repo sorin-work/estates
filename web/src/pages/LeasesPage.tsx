@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { createLease, listLeases } from '../api/leases';
+import { listProperties } from '../api/properties';
 import type { LeaseStatus } from '../api/types';
 import LeaseForm from '../components/forms/LeaseForm';
 import Modal from '../components/Modal';
@@ -16,12 +17,23 @@ export default function LeasesPage() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const status = (params.get('status') ?? '') as LeaseStatus | '';
+  const propertyId = params.get('property_id') ?? '';
+  const search = params.get('q') ?? '';
   const adding = params.get('new') === '1';
 
-  const { data, isPending, error } = useQuery({
-    queryKey: ['leases', { status }],
-    queryFn: () => listLeases({ status }),
+  const {
+    data: all,
+    isPending,
+    error,
+  } = useQuery({
+    queryKey: ['leases', { status, property_id: propertyId }],
+    queryFn: () => listLeases({ status, property_id: propertyId }),
   });
+  const properties = useQuery({ queryKey: ['properties'], queryFn: listProperties });
+  // Few landlords have more than a few dozen leases, so the name filter
+  // runs in the browser and updates as you type.
+  const needle = search.trim().toLowerCase();
+  const data = needle ? all?.filter((l) => l.tenant_name.toLowerCase().includes(needle)) : all;
 
   const create = useMutation({
     mutationFn: createLease,
@@ -34,10 +46,10 @@ export default function LeasesPage() {
     },
   });
 
-  function setStatus(value: string) {
+  function setFilter(key: string, value: string) {
     const next = new URLSearchParams(params);
-    if (value) next.set('status', value);
-    else next.delete('status');
+    if (value) next.set(key, value);
+    else next.delete(key);
     setParams(next, { replace: true });
   }
 
@@ -74,12 +86,27 @@ export default function LeasesPage() {
               key={o.value}
               type="button"
               className={status === o.value ? 'active' : ''}
-              onClick={() => setStatus(o.value)}
+              onClick={() => setFilter('status', o.value)}
             >
               {o.label}
             </button>
           ))}
         </div>
+        <select aria-label="Property" value={propertyId} onChange={(e) => setFilter('property_id', e.target.value)}>
+          <option value="">All properties</option>
+          {properties.data?.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <input
+          type="search"
+          aria-label="Tenant name"
+          placeholder="Tenant name"
+          value={search}
+          onChange={(e) => setFilter('q', e.target.value)}
+        />
       </div>
       {isPending && <Loading />}
       {error && <ErrorState error={error} />}

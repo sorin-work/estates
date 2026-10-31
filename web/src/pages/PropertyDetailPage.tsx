@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { listExpenses } from '../api/expenses';
 import { listLeases } from '../api/leases';
 import { listMaintenance } from '../api/maintenance';
+import { getProfitLoss } from '../api/reports';
 import {
   createUnit,
   deleteProperty,
@@ -19,6 +20,7 @@ import UnitForm from '../components/forms/UnitForm';
 import Documents from '../components/Documents';
 import Modal from '../components/Modal';
 import PageHeader from '../components/PageHeader';
+import StatCard from '../components/StatCard';
 import { ErrorState, Loading } from '../components/States';
 import { LeaseStatusBadge, MaintenanceStatusBadge, PriorityBadge } from '../components/StatusBadge';
 import { formatDate, today } from '../lib/dates';
@@ -83,9 +85,16 @@ export default function PropertyDetailPage() {
     onError: (err) => alert(err.message),
   });
 
+  const year = { from: `${today().slice(0, 4)}-01-01`, to: today() };
+  const yearToDate = useQuery({
+    queryKey: ['reports', 'profit-loss', year],
+    queryFn: () => getProfitLoss(year),
+  });
+
   if (property.isPending) return <Loading />;
   if (property.error) return <ErrorState error={property.error} />;
   const p = property.data;
+  const result = yearToDate.data?.properties.find((r) => r.property_id === id);
 
   return (
     <>
@@ -115,6 +124,18 @@ export default function PropertyDetailPage() {
         }
       />
       {p.notes && <p className="notes">{p.notes}</p>}
+      {result && (
+        <div className="stats">
+          <StatCard label="Collected this year" value={formatMoney(result.collected_cents)} />
+          <StatCard label="Expenses this year" value={formatMoney(result.expenses_cents)} />
+          <StatCard
+            label="Net this year"
+            value={formatMoney(result.net_cents)}
+            tone={result.net_cents < 0 ? 'bad' : 'good'}
+            detail={<Link to="/reports">Profit and loss</Link>}
+          />
+        </div>
+      )}
 
       <section className="card">
         <div className="card-header">

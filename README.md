@@ -142,3 +142,19 @@ web/
   `YYYY-MM-DD` with no timezone.
 - Errors look like
   `{"error": {"code": "validation_failed", "message": "...", "fields": {"rent_cents": "must be more than zero"}}}`.
+
+## How rent works
+
+Rent is due on the lease's due day (31 means the last day of the month). The
+first charge is due on the start date; if the lease starts between due dates,
+that first charge covers only the days until the next due date. A background
+job runs every hour (`BILLING_INTERVAL`) and creates any charges that have
+fallen due; it is idempotent, so running it again changes nothing. "Update
+charges now" on the Rent page runs it immediately.
+
+A charge is overdue once its grace period has passed: rent due on the 1st
+with 5 days grace is overdue from the 7th. If the lease has a late fee, one
+fee is added per overdue rent charge. Late fees are only added for rent that
+became overdue in the last 30 days, so entering an existing lease with its
+history does not pile up fees for months whose payments have not been typed
+in yet.

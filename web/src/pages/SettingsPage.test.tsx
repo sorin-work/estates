@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it } from 'vitest';
-import { setToken } from '../api/client';
+import { getToken, setToken } from '../api/client';
 import { AuthProvider } from '../auth/AuthContext';
 import { RequireAuth } from '../auth/guards';
 import { formatMoney, setCurrency } from '../lib/money';
@@ -67,5 +67,21 @@ describe('SettingsPage', () => {
 
     expect(await screen.findByText('does not match the new password')).toBeInTheDocument();
     expect(calls.some((c) => c.method === 'PUT')).toBe(false);
+  });
+
+  it('keeps this session going with the new token', async () => {
+    mockFetch({
+      'GET /api/auth/me': { body: user },
+      'PUT /api/auth/password': { body: { token: 'tok-new', expires_at: '', user } },
+    });
+    renderSettings();
+
+    await userEvent.type(await screen.findByLabelText('Current password'), 'old-password');
+    await userEvent.type(screen.getByLabelText('New password'), 'new-password');
+    await userEvent.type(screen.getByLabelText('Repeat new password'), 'new-password');
+    await userEvent.click(screen.getByRole('button', { name: 'Change password' }));
+
+    expect(await screen.findByText(/Other devices have been signed out/)).toBeInTheDocument();
+    expect(getToken()).toBe('tok-new');
   });
 });

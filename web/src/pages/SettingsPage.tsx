@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { changePassword, updateMe } from '../api/auth';
+import { setToken } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import Field from '../components/Field';
 import PageHeader from '../components/PageHeader';
@@ -74,6 +75,7 @@ function ProfileForm() {
 }
 
 function PasswordForm() {
+  const { updateUser } = useAuth();
   const empty = { current: '', next: '', confirm: '' };
   const [form, setForm] = useState(empty);
   const [saved, setSaved] = useState(false);
@@ -85,7 +87,9 @@ function PasswordForm() {
     const local: Record<string, string> = {};
     if (form.next !== form.confirm) local.confirm = 'does not match the new password';
     void run(async () => {
-      await changePassword({ current_password: form.current, new_password: form.next });
+      const res = await changePassword({ current_password: form.current, new_password: form.next });
+      setToken(res.token);
+      updateUser(res.user);
       setForm(empty);
       setSaved(true);
     }, local);
@@ -123,7 +127,7 @@ function PasswordForm() {
       <div className="form-actions">
         {saved && (
           <span className="muted" role="status">
-            Password changed
+            Password changed. Other devices have been signed out.
           </span>
         )}
         <button type="submit" className="button" disabled={submitting}>

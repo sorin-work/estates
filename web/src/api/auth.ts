@@ -17,6 +17,7 @@ export function updateMe(input: { name: string; currency: string; deposit_return
   return api<User>('/auth/me', { method: 'PUT', body: input });
 }
 
+/** Changes the password. Other sessions are signed out; this one gets a new token. */
 export function changePassword(input: { current_password: string; new_password: string }) {
-  return api<void>('/auth/password', { method: 'PUT', body: input });
+  return api<AuthResponse>('/auth/password', { method: 'PUT', body: input });
 }

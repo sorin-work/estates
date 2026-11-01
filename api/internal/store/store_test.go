@@ -465,3 +465,23 @@ func TestPaymentPageSizeIsCapped(t *testing.T) {
 		}
 	}
 }
+
+func TestVacantUnits(t *testing.T) {
+	f := setup(t)
+	f.lease(t, "2026-01-01", "2026-03-31")
+	f.lease(t, "2026-06-01", "2026-12-31")
+
+	u, err := f.st.GetUnit(ctx, f.owner, f.unit, d("2026-04-15"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.CurrentLeaseID != nil || u.VacantSince == nil || u.VacantSince.String() != "2026-04-01" ||
+		u.NextLeaseStart == nil || u.NextLeaseStart.String() != "2026-06-01" {
+		t.Errorf("vacant unit %+v", u)
+	}
+
+	u, _ = f.st.GetUnit(ctx, f.owner, f.unit, d("2026-07-01"))
+	if u.CurrentLeaseID == nil || u.VacantSince != nil || u.NextLeaseStart != nil {
+		t.Errorf("let unit %+v", u)
+	}
+}

@@ -8,17 +8,23 @@ import (
 )
 
 type Unit struct {
-	ID              string    `db:"id" json:"id"`
-	PropertyID      string    `db:"property_id" json:"property_id"`
-	PropertyName    string    `db:"property_name" json:"property_name"`
-	Label           string    `db:"label" json:"label"`
-	Bedrooms        int       `db:"bedrooms" json:"bedrooms"`
-	Bathrooms       float64   `db:"bathrooms" json:"bathrooms"`
-	SquareFeet      *int      `db:"square_feet" json:"square_feet"`
-	MarketRentCents int64     `db:"market_rent_cents" json:"market_rent_cents"`
-	CurrentLeaseID  *string   `db:"current_lease_id" json:"current_lease_id"`
-	CurrentTenant   *string   `db:"current_tenant" json:"current_tenant"`
-	CreatedAt       time.Time `db:"created_at" json:"created_at"`
+	ID              string  `db:"id" json:"id"`
+	PropertyID      string  `db:"property_id" json:"property_id"`
+	PropertyName    string  `db:"property_name" json:"property_name"`
+	Label           string  `db:"label" json:"label"`
+	Bedrooms        int     `db:"bedrooms" json:"bedrooms"`
+	Bathrooms       float64 `db:"bathrooms" json:"bathrooms"`
+	SquareFeet      *int    `db:"square_feet" json:"square_feet"`
+	MarketRentCents int64   `db:"market_rent_cents" json:"market_rent_cents"`
+	CurrentLeaseID  *string `db:"current_lease_id" json:"current_lease_id"`
+	CurrentTenant   *string `db:"current_tenant" json:"current_tenant"`
+	// VacantSince is the day after the last lease ended, for a vacant unit
+	// that has been let before.
+	VacantSince *domain.Date `db:"vacant_since" json:"vacant_since"`
+	// NextLeaseStart is when the next lease begins, for a vacant unit that
+	// has one signed.
+	NextLeaseStart *domain.Date `db:"next_lease_start" json:"next_lease_start"`
+	CreatedAt      time.Time    `db:"created_at" json:"created_at"`
 }
 
 type UnitInput struct {
@@ -33,7 +39,14 @@ type UnitInput struct {
 const unitSelect = `
 	SELECT u.id, u.property_id, p.name AS property_name, u.label, u.bedrooms, u.bathrooms,
 	       u.square_feet, u.market_rent_cents, u.created_at,
-	       cur.id AS current_lease_id, cur.tenant_name AS current_tenant
+	       cur.id AS current_lease_id, cur.tenant_name AS current_tenant,
+	       CASE WHEN cur.id IS NULL THEN
+	            (SELECT max(LEAST(l.end_date, COALESCE(l.terminated_on, l.end_date))) + 1
+	               FROM leases l WHERE l.unit_id = u.id AND l.start_date <= $2)
+	       END AS vacant_since,
+	       CASE WHEN cur.id IS NULL THEN
+	            (SELECT min(l.start_date) FROM leases l WHERE l.unit_id = u.id AND l.start_date > $2)
+	       END AS next_lease_start
 	  FROM units u
 	  JOIN properties p ON p.id = u.property_id
 	  LEFT JOIN LATERAL (

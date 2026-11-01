@@ -41,37 +41,37 @@ func TestTokenRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tok, exp, err := tokens.Issue("user-1", "a@example.com")
+	tok, exp, err := tokens.Issue("user-1", "a@example.com", 3)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if time.Until(exp) < 59*time.Minute {
 		t.Errorf("expiry too soon: %v", exp)
 	}
-	id, err := tokens.Verify(tok)
-	if err != nil || id != "user-1" {
-		t.Fatalf("Verify = %q, %v", id, err)
+	id, ver, err := tokens.Verify(tok)
+	if err != nil || id != "user-1" || ver != 3 {
+		t.Fatalf("Verify = %q, %d, %v", id, ver, err)
 	}
 }
 
 func TestTokenRejections(t *testing.T) {
 	tokens, _ := NewTokens(secret, time.Hour)
-	tok, _, _ := tokens.Issue("user-1", "a@example.com")
+	tok, _, _ := tokens.Issue("user-1", "a@example.com", 3)
 
 	other, _ := NewTokens("another-secret-that-is-also-32-chars!", time.Hour)
-	if _, err := other.Verify(tok); err == nil {
+	if _, _, err := other.Verify(tok); err == nil {
 		t.Error("token signed with another key accepted")
 	}
 
-	if _, err := tokens.Verify(tok + "x"); err == nil {
+	if _, _, err := tokens.Verify(tok + "x"); err == nil {
 		t.Error("tampered token accepted")
 	}
-	if _, err := tokens.Verify(""); err == nil {
+	if _, _, err := tokens.Verify(""); err == nil {
 		t.Error("empty token accepted")
 	}
 
 	tokens.now = func() time.Time { return time.Now().Add(2 * time.Hour) }
-	if _, err := tokens.Verify(tok); err == nil {
+	if _, _, err := tokens.Verify(tok); err == nil {
 		t.Error("expired token accepted")
 	}
 }

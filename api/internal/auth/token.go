@@ -26,15 +26,19 @@ func NewTokens(secret string, ttl time.Duration) (*Tokens, error) {
 
 type claims struct {
 	Email string `json:"email"`
+	// Version is the user's token version when the token was issued.
+	Version int `json:"ver"`
 	jwt.RegisteredClaims
 }
 
-// Issue returns a signed token for the user and its expiry time.
-func (t *Tokens) Issue(userID, email string) (string, time.Time, error) {
+// Issue returns a signed token for the user and its expiry time. version is
+// the user's current token version; see Verify.
+func (t *Tokens) Issue(userID, email string, version int) (string, time.Time, error) {
 	now := t.now()
 	exp := now.Add(t.ttl)
 	c := claims{
-		Email: email,
+		Email:   email,
+		Version: version,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   userID,
 			Issuer:    t.issuer,
@@ -53,8 +57,9 @@ func (t *Tokens) Issue(userID, email string) (string, time.Time, error) {
 // signed with a different key.
 var ErrInvalidToken = errors.New("invalid or expired token")
 
-// Verify checks the token and returns the user ID it was issued for.
-func (t *Tokens) Verify(token string) (string, error) {
+// Verify checks the token and returns the user ID and token version it was
+// issued with. Callers must compare the version with the user's current one.
+func (t *Tokens) Verify(token string) (string, int, error) {
 	var c claims
 	parsed, err := jwt.ParseWithClaims(token, &c, func(*jwt.Token) (any, error) {
 		return t.secret, nil
@@ -64,7 +69,7 @@ func (t *Tokens) Verify(token string) (string, error) {
 		jwt.WithTimeFunc(t.now),
 	)
 	if err != nil || !parsed.Valid || c.Subject == "" {
-		return "", ErrInvalidToken
+		return "", 0, ErrInvalidToken
 	}
-	return c.Subject, nil
+	return c.Subject, c.Version, nil
 }

@@ -73,14 +73,15 @@ func (f *fakeStore) UpdateUser(_ context.Context, id string, in store.UserSettin
 	return nil
 }
 
-func (f *fakeStore) SetPassword(_ context.Context, id, hash string) error {
+func (f *fakeStore) SetPassword(_ context.Context, id, hash string) (int, error) {
 	u, ok := f.users[id]
 	if !ok {
-		return store.ErrNotFound
+		return 0, store.ErrNotFound
 	}
 	u.PasswordHash = hash
+	u.TokenVersion++
 	f.users[id] = u
-	return nil
+	return u.TokenVersion, nil
 }
 
 func (f *fakeStore) RecordActivity(_ context.Context, _ string, a store.Activity) error {
@@ -226,9 +227,20 @@ func TestChangePassword(t *testing.T) {
 		t.Errorf("fields %v", fields)
 	}
 
-	c.mustStatus(http.StatusNoContent, "PUT", "/api/auth/password", map[string]string{
+	oldToken := c.token
+	var changed authResponse
+	c.mustStatus(http.StatusOK, "PUT", "/api/auth/password", map[string]string{
 		"current_password": "old-password", "new_password": "new-password",
-	})
+	}).decode(t, &changed)
+
+	// The session that changed it carries on with a new token; any other
+	// session using the old one is signed out.
+	c.token = changed.Token
+	c.mustStatus(http.StatusOK, "GET", "/api/auth/me", nil)
+	c.token = oldToken
+	if res := c.mustStatus(http.StatusUnauthorized, "GET", "/api/auth/me", nil); res.errorCode(t) != "unauthorized" {
+		t.Errorf("old token: %s", res.Body)
+	}
 	c.mustStatus(http.StatusUnauthorized, "POST", "/api/auth/login", map[string]string{
 		"email": "lee@example.com", "password": "old-password",
 	})
@@ -261,7 +273,7 @@ func TestRequireAuthRejectsBadTokens(t *testing.T) {
 	h := srv.Handler()
 
 	other, _ := auth.NewTokens("a-completely-different-secret-32-chars", time.Hour)
-	foreign, _, _ := other.Issue("someone", "x@example.com")
+	foreign, _, _ := other.Issue("someone", "x@example.com", 0)
 
 	for _, header := range []string{"", "Bearer", "Bearer ", "Bearer nonsense", "Basic dXNlcjpwYXNz", "Bearer " + foreign} {
 		req := httptest.NewRequest("GET", "/api/auth/me", nil)
@@ -279,7 +291,12 @@ func TestRequireAuthRejectsBadTokens(t *testing.T) {
 func authed(t *testing.T, st Store) (*Server, *client) {
 	t.Helper()
 	srv, c := newTestServer(t, st)
-	tok, _, err := srv.tokens.Issue("00000000-0000-0000-0000-000000000001", "owner@example.com")
+	if fs, ok := st.(*fakeStore); ok {
+		if _, err := fs.CreateUser(context.Background(), "owner@example.com", "Owner", "hash"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tok, _, err := srv.tokens.Issue("00000000-0000-0000-0000-000000000001", "owner@example.com", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

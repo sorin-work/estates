@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
+
+	"github.com/sorin-work/estates/api/internal/store"
 )
 
 func (s *Server) logRequests(next http.Handler) http.Handler {
@@ -70,8 +72,9 @@ type ctxKey int
 
 const userIDKey ctxKey = iota
 
-// requireAuth rejects requests without a valid bearer token and stores the
-// user ID in the request context.
+// requireAuth rejects requests without a valid bearer token, or with one
+// from before the user last changed their password, and stores the user ID
+// in the request context.
 func (s *Server) requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		header := r.Header.Get("Authorization")
@@ -80,9 +83,19 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 			writeError(w, http.StatusUnauthorized, "unauthorized", "missing bearer token")
 			return
 		}
-		userID, err := s.tokens.Verify(token)
+		userID, version, err := s.tokens.Verify(token)
 		if err != nil {
 			writeError(w, http.StatusUnauthorized, "unauthorized", "invalid or expired token")
+			return
+		}
+		u, err := s.store.UserByID(r.Context(), userID)
+		if errors.Is(err, store.ErrNotFound) || (err == nil && u.TokenVersion != version) {
+			writeError(w, http.StatusUnauthorized, "unauthorized", "this session has ended, sign in again")
+			return
+		}
+		if err != nil {
+			s.log.Error("load user", "user_id", userID, "err", err)
+			writeError(w, http.StatusInternalServerError, "internal", "something went wrong")
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userIDKey, userID)))

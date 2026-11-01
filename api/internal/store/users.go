@@ -13,11 +13,14 @@ type User struct {
 	Currency     string `db:"currency" json:"currency"`
 	// DepositReturnDays is the deadline for returning a deposit after the
 	// tenant moves out.
-	DepositReturnDays int       `db:"deposit_return_days" json:"deposit_return_days"`
-	CreatedAt         time.Time `db:"created_at" json:"created_at"`
+	DepositReturnDays int `db:"deposit_return_days" json:"deposit_return_days"`
+	// TokenVersion goes up when the password changes; older tokens stop
+	// working.
+	TokenVersion int       `db:"token_version" json:"-"`
+	CreatedAt    time.Time `db:"created_at" json:"created_at"`
 }
 
-const userColumns = `id, email, name, password_hash, currency, deposit_return_days, created_at`
+const userColumns = `id, email, name, password_hash, currency, deposit_return_days, token_version, created_at`
 
 // CreateUser inserts a user. It returns ErrConflict if the email is taken.
 func (s *Store) CreateUser(ctx context.Context, email, name, passwordHash string) (User, error) {
@@ -56,7 +59,13 @@ func (s *Store) UpdateUser(ctx context.Context, id string, in UserSettings) erro
 		id, in.Name, in.Currency, in.DepositReturnDays))
 }
 
-func (s *Store) SetPassword(ctx context.Context, id, passwordHash string) error {
-	return execOne(s.pool.Exec(ctx, `
-		UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1`, id, passwordHash))
+// SetPassword changes the password and bumps the token version, which signs
+// out every session. It returns the new version.
+func (s *Store) SetPassword(ctx context.Context, id, passwordHash string) (int, error) {
+	var version int
+	err := s.pool.QueryRow(ctx, `
+		UPDATE users SET password_hash = $2, token_version = token_version + 1, updated_at = now()
+		 WHERE id = $1
+		RETURNING token_version`, id, passwordHash).Scan(&version)
+	return version, notFound(err)
 }

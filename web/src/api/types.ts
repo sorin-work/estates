@@ -50,6 +50,8 @@ export interface Unit {
   market_rent_cents: Cents;
   current_lease_id: string | null;
   current_tenant: string | null;
+  vacant_since: ISODate | null;
+  next_lease_start: ISODate | null;
 }
 
 export type UnitInput = Pick<Unit, 'label' | 'bedrooms' | 'bathrooms' | 'square_feet' | 'market_rent_cents'>;

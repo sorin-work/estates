@@ -172,7 +172,14 @@ export default function PropertyDetailPage() {
                     {u.current_lease_id ? (
                       <Link to={`/leases/${u.current_lease_id}`}>{u.current_tenant}</Link>
                     ) : (
-                      <span className="badge badge-amber">Vacant</span>
+                      <>
+                        <span className="badge badge-amber">Vacant</span>
+                        <div className="muted small">
+                          {u.vacant_since && `since ${formatDate(u.vacant_since)}`}
+                          {u.vacant_since && u.next_lease_start && ' · '}
+                          {u.next_lease_start && `let from ${formatDate(u.next_lease_start)}`}
+                        </div>
+                      </>
                     )}
                   </td>
                   <td className="row-actions">

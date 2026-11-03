@@ -2,11 +2,24 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { exportPayments, listBalances, listPayments, runBilling } from '../api/rent';
+import type { Balance } from '../api/types';
 import PageHeader from '../components/PageHeader';
+import SortHeader from '../components/SortHeader';
 import { EmptyState, ErrorState, Loading } from '../components/States';
 import { formatDate, formatMonthLong, monthRange, today } from '../lib/dates';
 import { paymentMethods } from '../lib/labels';
 import { formatMoney } from '../lib/money';
+import { nextSort, sortBy, type SortState } from '../lib/sort';
+
+type RollColumn = 'tenant' | 'property' | 'rent' | 'balance' | 'overdue';
+
+const rollValue: Record<RollColumn, (b: Balance) => string | number> = {
+  tenant: (b) => b.lease.tenant_name,
+  property: (b) => `${b.lease.property_name} ${b.lease.unit_label}`,
+  rent: (b) => b.lease.current_rent_cents,
+  balance: (b) => b.balance_cents,
+  overdue: (b) => b.overdue_cents,
+};
 
 const PAGE_SIZE = 25;
 
@@ -15,6 +28,9 @@ export default function RentPage() {
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [month, setMonth] = useState(today().slice(0, 7));
   const [page, setPage] = useState(0);
+  // Unsorted, the rent roll comes most overdue first.
+  const [sort, setSort] = useState<SortState<RollColumn>>({ key: null, dir: 'asc' });
+  const onSort = (c: RollColumn) => setSort(nextSort(sort, c, c === 'tenant' || c === 'property' ? 'asc' : 'desc'));
 
   const balances = useQuery({ queryKey: ['balances', overdueOnly], queryFn: () => listBalances(overdueOnly) });
   const range = monthRange(month);
@@ -34,6 +50,7 @@ export default function RentPage() {
     },
   });
 
+  const roll = balances.data && sort.key ? sortBy(balances.data, rollValue[sort.key], sort.dir) : balances.data;
   const totalOwed = balances.data?.reduce((sum, b) => sum + Math.max(0, b.balance_cents), 0) ?? 0;
   const totalPages = payments.data ? Math.max(1, Math.ceil(payments.data.total / PAGE_SIZE)) : 1;
 
@@ -72,16 +89,16 @@ export default function RentPage() {
           <table className="table">
             <thead>
               <tr>
-                <th>Tenant</th>
-                <th>Property</th>
-                <th className="num">Rent</th>
-                <th className="num">Balance</th>
-                <th className="num">Overdue</th>
-                <th>Late since</th>
+                <SortHeader label="Tenant" column="tenant" sort={sort} onSort={onSort} />
+                <SortHeader label="Property" column="property" sort={sort} onSort={onSort} />
+                <SortHeader label="Rent" column="rent" sort={sort} onSort={onSort} className="num" />
+                <SortHeader label="Balance" column="balance" sort={sort} onSort={onSort} className="num" />
+                <SortHeader label="Overdue" column="overdue" sort={sort} onSort={onSort} className="num" />
+                <th scope="col">Late since</th>
               </tr>
             </thead>
             <tbody>
-              {balances.data.map((b) => (
+              {(roll ?? []).map((b) => (
                 <tr key={b.lease.id} className={b.overdue_cents > 0 ? 'row-bad' : undefined}>
                   <td>
                     <Link to={`/leases/${b.lease.id}`}>{b.lease.tenant_name}</Link>

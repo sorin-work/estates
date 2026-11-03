@@ -1372,3 +1372,18 @@ input[type='checkbox'] {
     animation-duration: 0.01ms !important;
   }
 }
+
+.sort-button {
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.sort-button:hover {
+  color: var(--text);
+}

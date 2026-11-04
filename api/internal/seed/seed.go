@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand/v2"
+	"sort"
+	"strings"
+	"time"
 
 	"github.com/sorin-work/estates/api/internal/auth"
 	"github.com/sorin-work/estates/api/internal/billing"
@@ -48,6 +51,8 @@ type seeder struct {
 	owner string
 	// vendors maps vendor names to IDs.
 	vendors map[string]string
+	// history is the activity log, written in date order at the end.
+	history []store.Activity
 
 	leases, payments int
 }
@@ -135,7 +140,33 @@ func (s *seeder) run(ctx context.Context) error {
 	if err := s.maintenance(ctx, props, units); err != nil {
 		return err
 	}
-	return s.expenses(ctx, props)
+	if err := s.expenses(ctx, props); err != nil {
+		return err
+	}
+	return s.writeHistory(ctx)
+}
+
+// note adds an activity entry that happened on a day, at a plausible time.
+func (s *seeder) note(on domain.Date, entityType, entityID, leaseID, action, summary string) {
+	if on.After(s.today) {
+		on = s.today
+	}
+	at := on.Time().Add(time.Duration(9+s.rnd.IntN(10))*time.Hour + time.Duration(s.rnd.IntN(60))*time.Minute)
+	a := store.Activity{EntityType: entityType, EntityID: entityID, Action: action, Summary: summary, CreatedAt: at}
+	if leaseID != "" {
+		a.LeaseID = &leaseID
+	}
+	s.history = append(s.history, a)
+}
+
+func (s *seeder) writeHistory(ctx context.Context) error {
+	sort.SliceStable(s.history, func(i, j int) bool { return s.history[i].CreatedAt.Before(s.history[j].CreatedAt) })
+	for _, a := range s.history {
+		if err := s.st.RecordActivity(ctx, s.owner, a); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // vendorID returns the ID of a demo vendor, or nil for names that are not
@@ -167,11 +198,15 @@ func (s *seeder) lease(ctx context.Context, spec leaseSpec, unitID, tenantID str
 		return err
 	}
 	s.leases++
+	s.note(start.AddDays(-12), "lease", id, id, "created",
+		fmt.Sprintf("Lease for %s from %s at %s a month", spec.tenant, start, money(spec.rent)))
 
 	if spec.terminated {
 		if err := s.st.TerminateLease(ctx, s.owner, id, s.today.AddDays(-75)); err != nil {
 			return err
 		}
+		s.note(s.today.AddDays(-104), "lease", id, id, "terminated",
+			fmt.Sprintf("Lease of %s ended early on %s", spec.tenant, s.today.AddDays(-75)))
 	}
 	if spec.deposit > 0 {
 		if err := s.deposit(ctx, id, spec, start); err != nil {
@@ -184,6 +219,8 @@ func (s *seeder) lease(ctx context.Context, spec leaseSpec, unitID, tenantID str
 		}); err != nil {
 			return err
 		}
+		s.note(start.AddMonths(10), "lease", id, id, "rent_changed",
+			fmt.Sprintf("Rent for %s set to %s from %s", spec.tenant, money(spec.increase), start.AddMonths(12)))
 	}
 
 	l, err := s.st.GetLease(ctx, s.owner, id)
@@ -246,11 +283,16 @@ func (s *seeder) lease(ctx context.Context, spec leaseSpec, unitID, tenantID str
 		return err
 	}
 	if spec.renewal > 0 {
-		_, err = s.st.RenewLease(ctx, s.owner, id, store.RenewalInput{
+		next, err := s.st.RenewLease(ctx, s.owner, id, store.RenewalInput{
 			EndDate: end.AddMonths(12), RentCents: spec.renewal, Notes: "Renewed for another year.",
 		})
+		if err != nil {
+			return err
+		}
+		s.note(s.today.AddDays(-9), "lease", next, id, "renewed",
+			fmt.Sprintf("Renewed the lease of %s until %s at %s", spec.tenant, end.AddMonths(12), money(spec.renewal)))
 	}
-	return err
+	return nil
 }
 
 // deposit records the deposit paid before move-in. Marcus Reed moved out
@@ -316,6 +358,7 @@ func (s *seeder) maintenance(ctx context.Context, props, units map[string]string
 		if err != nil {
 			return err
 		}
+		s.note(reported, "maintenance", id, "", "created", "Maintenance request: "+m.title)
 		if m.status != domain.MaintenanceOpen {
 			var done *domain.Date
 			if m.status == domain.MaintenanceCompleted {
@@ -325,6 +368,11 @@ func (s *seeder) maintenance(ctx context.Context, props, units map[string]string
 			if err := s.st.SetMaintenanceStatus(ctx, s.owner, id, m.status, done); err != nil {
 				return err
 			}
+			when := reported.AddDays(m.daysToFix)
+			if m.status != domain.MaintenanceCompleted {
+				when = reported.AddDays(1)
+			}
+			s.note(when, "maintenance", id, "", m.status, m.title+" is now "+strings.ReplaceAll(m.status, "_", " "))
 		}
 		if m.cost > 0 {
 			spent := reported.AddDays(m.daysToFix)
@@ -407,4 +455,13 @@ func (s *seeder) expenses(ctx context.Context, props map[string]string) error {
 		add("maple", "other", 8900, s.monthsAgo(3, 17), "Hardware Depot", "Smoke detector batteries and filters"),
 	}
 	return errors.Join(yearly...)
+}
+
+// money formats cents the way the activity log does, e.g. "1,450.00".
+func money(cents int64) string {
+	whole := fmt.Sprint(cents / 100)
+	for i := len(whole) - 3; i > 0; i -= 3 {
+		whole = whole[:i] + "," + whole[i:]
+	}
+	return fmt.Sprintf("%s.%02d", whole, cents%100)
 }

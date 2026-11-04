@@ -77,6 +77,19 @@ func TestDemoSeed(t *testing.T) {
 		t.Errorf("expected a rent increase (%v) and a renewal (%v)", increased, renewed)
 	}
 
+	history, err := st.ListActivity(ctx, u.ID, store.ActivityFilter{Limit: 200})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(history) < 20 {
+		t.Errorf("only %d activity entries", len(history))
+	}
+	for i := 1; i < len(history); i++ {
+		if history[i].CreatedAt.After(history[i-1].CreatedAt) {
+			t.Fatalf("activity is not newest first at %d: %v after %v", i, history[i].CreatedAt, history[i-1].CreatedAt)
+		}
+	}
+
 	recurring, err := st.ListRecurringExpenses(ctx, u.ID, "")
 	if err != nil {
 		t.Fatal(err)

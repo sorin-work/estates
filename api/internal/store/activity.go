@@ -25,11 +25,17 @@ type ActivityFilter struct {
 	Limit  int
 }
 
+// RecordActivity adds an entry. CreatedAt defaults to now; the demo data
+// sets it to back-date its history.
 func (s *Store) RecordActivity(ctx context.Context, ownerID string, a Activity) error {
+	var at *time.Time
+	if !a.CreatedAt.IsZero() {
+		at = &a.CreatedAt
+	}
 	_, err := s.pool.Exec(ctx, `
-		INSERT INTO activity (owner_id, entity_type, entity_id, lease_id, action, summary)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
-		ownerID, a.EntityType, a.EntityID, emptyToNil(a.LeaseID), a.Action, a.Summary)
+		INSERT INTO activity (owner_id, entity_type, entity_id, lease_id, action, summary, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, now()))`,
+		ownerID, a.EntityType, a.EntityID, emptyToNil(a.LeaseID), a.Action, a.Summary, at)
 	return err
 }
 

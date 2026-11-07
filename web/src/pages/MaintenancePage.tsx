@@ -10,6 +10,7 @@ import {
 } from '../api/maintenance';
 import { listProperties } from '../api/properties';
 import type { MaintenanceInput, MaintenancePriority, MaintenanceRequest, MaintenanceStatus } from '../api/types';
+import { listVendors } from '../api/vendors';
 import MaintenanceForm from '../components/forms/MaintenanceForm';
 import MaintenanceActions from '../components/MaintenanceActions';
 import Modal from '../components/Modal';
@@ -27,15 +28,18 @@ export default function MaintenancePage() {
   // "active" means anything not closed; "all" turns the status filter off.
   const status = params.get('status') ?? 'active';
   const priority = (params.get('priority') ?? '') as MaintenancePriority | '';
+  const vendorId = params.get('vendor_id') ?? '';
   const [form, setForm] = useState<MaintenanceRequest | 'new' | null>(null);
 
   const filter = {
     property_id: propertyId,
     status: (status === 'all' ? '' : status) as MaintenanceStatus | 'active' | '',
     priority,
+    vendor_id: vendorId,
   };
   const requests = useQuery({ queryKey: ['maintenance', filter], queryFn: () => listMaintenance(filter) });
   const properties = useQuery({ queryKey: ['properties'], queryFn: listProperties });
+  const vendors = useQuery({ queryKey: ['vendors', ''], queryFn: () => listVendors() });
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: ['maintenance'] });
@@ -98,6 +102,16 @@ export default function MaintenancePage() {
             </option>
           ))}
         </select>
+        {vendors.data && vendors.data.length > 0 && (
+          <select aria-label="Vendor" value={vendorId} onChange={(e) => setFilter('vendor_id', e.target.value)}>
+            <option value="">Any vendor</option>
+            {vendors.data.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
       <FormError error={move.error} />
       {requests.isPending && <Loading />}

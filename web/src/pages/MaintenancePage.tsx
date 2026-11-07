@@ -118,7 +118,10 @@ export default function MaintenancePage() {
                   <div className="muted">
                     {m.property_name}
                     {m.unit_label ? ` · Unit ${m.unit_label}` : ' · Common area'} · reported {formatDate(m.reported_on)}
-                    {m.status !== 'completed' && m.status !== 'cancelled' && age > 0 && ` (${age} days ago)`}
+                    {m.status !== 'completed' &&
+                      m.status !== 'cancelled' &&
+                      age > 0 &&
+                      ` (${age === 1 ? '1 day' : `${age} days`} ago)`}
                   </div>
                 </div>
                 <div className="row">

@@ -14,6 +14,7 @@ export default function MaintenanceActions({
   // Most likely next step first.
   const order: MaintenanceStatus[] = ['in_progress', 'completed', 'on_hold', 'open', 'cancelled'];
   const next = order.filter((s) => request.next_statuses.includes(s));
+  const closed = request.status === 'completed' || request.status === 'cancelled';
   return (
     <div className="status-actions">
       {next.map((s) => (
@@ -24,7 +25,7 @@ export default function MaintenanceActions({
           disabled={busy}
           onClick={() => onChange(s)}
         >
-          {maintenanceActions[s]}
+          {s === 'open' && !closed ? 'Back to open' : maintenanceActions[s]}
         </button>
       ))}
     </div>

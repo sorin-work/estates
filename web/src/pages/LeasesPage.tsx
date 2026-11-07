@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { createLease, listLeases } from '../api/leases';
 import { listProperties } from '../api/properties';
 import type { LeaseStatus } from '../api/types';
@@ -10,12 +10,13 @@ import { EmptyState, ErrorState, Loading } from '../components/States';
 import { LeaseStatusBadge } from '../components/StatusBadge';
 import { formatDate } from '../lib/dates';
 import { leaseStatuses, options } from '../lib/labels';
+import { useFilterParams } from '../lib/hooks';
 import { formatMoney } from '../lib/money';
 
 export default function LeasesPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
+  const [params, setFilter, setParams] = useFilterParams();
   const status = (params.get('status') ?? '') as LeaseStatus | '';
   const propertyId = params.get('property_id') ?? '';
   const search = params.get('q') ?? '';
@@ -45,13 +46,6 @@ export default function LeasesPage() {
       navigate(`/leases/${l.id}`);
     },
   });
-
-  function setFilter(key: string, value: string) {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    setParams(next, { replace: true });
-  }
 
   function closeForm() {
     const next = new URLSearchParams(params);

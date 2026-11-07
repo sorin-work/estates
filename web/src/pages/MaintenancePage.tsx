@@ -1,6 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
 import {
   createMaintenance,
   deleteMaintenance,
@@ -19,12 +18,12 @@ import { EmptyState, ErrorState, FormError, Loading } from '../components/States
 import { MaintenanceStatusBadge, PriorityBadge } from '../components/StatusBadge';
 import { daysBetween, formatDate, today } from '../lib/dates';
 import { maintenancePriorities, maintenanceStatuses, options } from '../lib/labels';
-import { useDebounced } from '../lib/hooks';
+import { useDebounced, useFilterParams } from '../lib/hooks';
 import { formatMoney } from '../lib/money';
 
 export default function MaintenancePage() {
   const queryClient = useQueryClient();
-  const [params, setParams] = useSearchParams();
+  const [params, setFilter] = useFilterParams();
   const propertyId = params.get('property_id') ?? '';
   // "active" means anything not closed; "all" turns the status filter off.
   const status = params.get('status') ?? 'active';
@@ -66,13 +65,6 @@ export default function MaintenancePage() {
     onSuccess: refresh,
   });
   const remove = useMutation({ mutationFn: deleteMaintenance, onSuccess: refresh });
-
-  function setFilter(key: string, value: string) {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    setParams(next, { replace: true });
-  }
 
   return (
     <>

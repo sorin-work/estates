@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
+import { Link } from 'react-router';
 import { createExpense, deleteExpense, exportExpenses, listExpenses, updateExpense } from '../api/expenses';
 import { listProperties } from '../api/properties';
 import type { Expense, ExpenseCategory, ExpenseInput } from '../api/types';
@@ -11,11 +11,12 @@ import RecurringExpenses from '../components/RecurringExpenses';
 import { EmptyState, ErrorState, Loading } from '../components/States';
 import { formatDate, today } from '../lib/dates';
 import { expenseCategories, options } from '../lib/labels';
+import { useFilterParams } from '../lib/hooks';
 import { formatMoney } from '../lib/money';
 
 export default function ExpensesPage() {
   const queryClient = useQueryClient();
-  const [params, setParams] = useSearchParams();
+  const [params, setFilter] = useFilterParams();
   const year = today().slice(0, 4);
   const propertyId = params.get('property_id') ?? '';
   const category = (params.get('category') ?? '') as ExpenseCategory | '';
@@ -42,13 +43,6 @@ export default function ExpensesPage() {
   });
   const remove = useMutation({ mutationFn: deleteExpense, onSuccess: refresh });
   const exportCsv = useMutation({ mutationFn: () => exportExpenses(filter) });
-
-  function setFilter(key: string, value: string) {
-    const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
-    setParams(next, { replace: true });
-  }
 
   const data = expenses.data;
   const top = data?.by_category[0]?.amount_cents ?? 0;

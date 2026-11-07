@@ -46,6 +46,8 @@ type MaintenanceFilter struct {
 	Status   string
 	Priority string
 	VendorID string
+	// Search matches the title, description and vendor.
+	Search string
 }
 
 const maintenanceSelect = `
@@ -79,6 +81,9 @@ func (s *Store) ListMaintenance(ctx context.Context, ownerID string, f Maintenan
 	}
 	if f.VendorID != "" {
 		w.add("m.vendor_id = ?", f.VendorID)
+	}
+	if f.Search != "" {
+		w.add("concat_ws(' ', m.title, m.description, m.vendor) ILIKE '%' || ? || '%'", escapeLike(f.Search))
 	}
 	q := maintenanceSelect + w.where() +
 		` ORDER BY (m.status IN ('completed', 'cancelled')), ` + priorityRank + `, m.reported_on DESC, m.created_at DESC`

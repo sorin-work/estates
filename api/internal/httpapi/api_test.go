@@ -220,4 +220,14 @@ func TestMaintenanceAndExpensesFlow(t *testing.T) {
 		t.Errorf("active %+v", active)
 	}
 	c.mustStatus(http.StatusBadRequest, "GET", "/api/maintenance?status=whenever", nil)
+
+	var found []maintenanceView
+	c.mustStatus(http.StatusOK, "GET", "/api/maintenance?q=ROOF", nil).decode(t, &found)
+	if len(found) != 1 || found[0].ID != req.ID {
+		t.Errorf("search %+v", found)
+	}
+	c.mustStatus(http.StatusOK, "GET", "/api/maintenance?q=plumbing", nil).decode(t, &found)
+	if len(found) != 0 {
+		t.Errorf("search for something else found %d", len(found))
+	}
 }

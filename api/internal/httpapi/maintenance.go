@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -57,6 +58,7 @@ func (s *Server) listMaintenance(w http.ResponseWriter, r *http.Request) error {
 	if f.VendorID, err = queryID(r, "vendor_id"); err != nil {
 		return err
 	}
+	f.Search = strings.TrimSpace(r.URL.Query().Get("q"))
 	f.Priority = r.URL.Query().Get("priority")
 	if f.Priority != "" && !domain.OneOf(f.Priority, domain.MaintenancePriorities) {
 		return errBadRequest("unknown priority " + f.Priority)

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import {
@@ -19,6 +19,7 @@ import { EmptyState, ErrorState, FormError, Loading } from '../components/States
 import { MaintenanceStatusBadge, PriorityBadge } from '../components/StatusBadge';
 import { daysBetween, formatDate, today } from '../lib/dates';
 import { maintenancePriorities, maintenanceStatuses, options } from '../lib/labels';
+import { useDebounced } from '../lib/hooks';
 import { formatMoney } from '../lib/money';
 
 export default function MaintenancePage() {
@@ -29,6 +30,8 @@ export default function MaintenancePage() {
   const status = params.get('status') ?? 'active';
   const priority = (params.get('priority') ?? '') as MaintenancePriority | '';
   const vendorId = params.get('vendor_id') ?? '';
+  const [search, setSearch] = useState('');
+  const q = useDebounced(search.trim(), 250);
   const [form, setForm] = useState<MaintenanceRequest | 'new' | null>(null);
 
   const filter = {
@@ -36,8 +39,13 @@ export default function MaintenancePage() {
     status: (status === 'all' ? '' : status) as MaintenanceStatus | 'active' | '',
     priority,
     vendor_id: vendorId,
+    q,
   };
-  const requests = useQuery({ queryKey: ['maintenance', filter], queryFn: () => listMaintenance(filter) });
+  const requests = useQuery({
+    queryKey: ['maintenance', filter],
+    queryFn: () => listMaintenance(filter),
+    placeholderData: keepPreviousData,
+  });
   const properties = useQuery({ queryKey: ['properties'], queryFn: listProperties });
   const vendors = useQuery({ queryKey: ['vendors', ''], queryFn: () => listVendors() });
 
@@ -77,6 +85,13 @@ export default function MaintenancePage() {
         }
       />
       <div className="toolbar">
+        <input
+          type="search"
+          aria-label="Search requests"
+          placeholder="Search requests"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
         <select aria-label="Property" value={propertyId} onChange={(e) => setFilter('property_id', e.target.value)}>
           <option value="">All properties</option>
           {properties.data?.map((p) => (

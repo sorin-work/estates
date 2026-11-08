@@ -19,6 +19,7 @@ export const deletePayment = (id: string) => api<void>(`/payments/${id}`, { meth
 
 export const listBalances = (overdueOnly = false) =>
   api<Balance[]>('/rent/balances', { query: { overdue: overdueOnly || undefined } });
+export const exportBalances = () => download('/rent/balances.csv', undefined, 'rent-roll.csv');
 export const runBilling = () =>
   api<{ leases: number; rent_charges: number; late_fees: number }>('/rent/run', { method: 'POST' });
 export const getReceipt = (paymentId: string) => api<Receipt>(`/payments/${paymentId}/receipt`);

@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { exportPayments, listBalances, listPayments, runBilling } from '../api/rent';
+import { exportBalances, exportPayments, listBalances, listPayments, runBilling } from '../api/rent';
 import type { Balance } from '../api/types';
 import PageHeader from '../components/PageHeader';
 import SortHeader from '../components/SortHeader';
@@ -35,6 +35,7 @@ export default function RentPage() {
   const balances = useQuery({ queryKey: ['balances', overdueOnly], queryFn: () => listBalances(overdueOnly) });
   const range = monthRange(month);
   const exportCsv = useMutation({ mutationFn: () => exportPayments(range) });
+  const exportRoll = useMutation({ mutationFn: exportBalances });
   const payments = useQuery({
     queryKey: ['payments', { month, page }],
     queryFn: () => listPayments({ ...range, limit: PAGE_SIZE, offset: page * PAGE_SIZE }),
@@ -75,6 +76,14 @@ export default function RentPage() {
       <section className="card">
         <div className="card-header">
           <h2>Rent roll</h2>
+          <button
+            type="button"
+            className="link-button"
+            disabled={exportRoll.isPending}
+            onClick={() => exportRoll.mutate()}
+          >
+            Export CSV
+          </button>
           <label className="checkbox">
             <input type="checkbox" checked={overdueOnly} onChange={(e) => setOverdueOnly(e.target.checked)} />
             Only overdue

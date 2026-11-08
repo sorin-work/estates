@@ -72,3 +72,42 @@ func TestDepositChargesMoveOutOfRent(t *testing.T) {
 		t.Errorf("the unpaid deposit charge should stay, %d left", n)
 	}
 }
+
+func TestTypedVendorNamesBecomeVendors(t *testing.T) {
+	ctx := context.Background()
+	pool := testdb.New(t)
+	if err := database.MigrateTo(ctx, pool, 11); err != nil {
+		t.Fatal(err)
+	}
+
+	exec(t, pool, `INSERT INTO users (id, email, name, password_hash) VALUES ('00000000-0000-0000-0000-000000000001', 'o@example.com', 'O', 'x'), ('00000000-0000-0000-0000-000000000002', 'p@example.com', 'P', 'x')`)
+	exec(t, pool, `INSERT INTO properties (id, owner_id, name, address_line1, city) VALUES
+		('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-000000000001', 'Mine', '1 St', 'C'),
+		('00000000-0000-0000-0000-0000000000a2', '00000000-0000-0000-0000-000000000002', 'Theirs', '2 St', 'C')`)
+	exec(t, pool, `INSERT INTO maintenance_requests (property_id, title, vendor) VALUES
+		('00000000-0000-0000-0000-0000000000a1', 'Leak', 'Rapid Rooter'),
+		('00000000-0000-0000-0000-0000000000a1', 'Light', ''),
+		('00000000-0000-0000-0000-0000000000a2', 'Drain', 'Rapid Rooter')`)
+	exec(t, pool, `INSERT INTO expenses (property_id, category, amount_cents, spent_on, vendor) VALUES
+		('00000000-0000-0000-0000-0000000000a1', 'repairs', 100, '2026-01-01', 'rapid rooter '),
+		('00000000-0000-0000-0000-0000000000a1', 'repairs', 100, '2026-01-02', 'Hardware Depot')`)
+
+	if err := database.MigrateTo(ctx, pool, 12); err != nil {
+		t.Fatal(err)
+	}
+
+	// Names are matched ignoring case and spaces, and each owner gets their
+	// own vendor.
+	if n := count(t, pool, `SELECT count(*) FROM vendors`); n != 3 {
+		t.Errorf("%d vendors, want Rapid Rooter twice and Hardware Depot", n)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM expenses WHERE vendor_id IS NULL`); n != 0 {
+		t.Errorf("%d expenses not linked", n)
+	}
+	if n := count(t, pool, `SELECT count(*) FROM maintenance_requests WHERE vendor_id IS NULL`); n != 1 {
+		t.Errorf("only the request without a vendor should be unlinked, %d are", n)
+	}
+	if n := count(t, pool, `SELECT count(DISTINCT e.vendor_id) FROM expenses e JOIN maintenance_requests m ON m.vendor_id = e.vendor_id`); n != 1 {
+		t.Errorf("the job and its bill should share a vendor")
+	}
+}

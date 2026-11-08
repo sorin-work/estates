@@ -329,10 +329,15 @@ h3 {
 
 .card-header {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
+  gap: 0.5rem 1rem;
   margin-bottom: 0.9rem;
+}
+
+.card-header h2 {
+  margin-right: auto;
 }
 
 .cards {

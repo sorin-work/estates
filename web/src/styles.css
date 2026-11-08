@@ -1208,8 +1208,26 @@ input[type='checkbox'] {
 }
 
 @media print {
-  .no-print {
+  .no-print,
+  .sidebar,
+  .topbar,
+  .page-actions,
+  .skip-link {
     display: none !important;
+  }
+
+  .main {
+    margin: 0;
+  }
+
+  .content {
+    padding: 0;
+    max-width: none;
+  }
+
+  .card {
+    box-shadow: none;
+    break-inside: avoid;
   }
 
   body {

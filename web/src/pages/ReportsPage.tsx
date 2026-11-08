@@ -51,17 +51,22 @@ export default function ReportsPage() {
         title="Profit and loss"
         subtitle={data && `${formatDate(data.from)} – ${formatDate(data.to)}`}
         actions={
-          <button
-            type="button"
-            className="button secondary"
-            disabled={exportCsv.isPending}
-            onClick={() => exportCsv.mutate()}
-          >
-            Export CSV
-          </button>
+          <>
+            <button type="button" className="button secondary" onClick={() => window.print()}>
+              Print
+            </button>
+            <button
+              type="button"
+              className="button secondary"
+              disabled={exportCsv.isPending}
+              onClick={() => exportCsv.mutate()}
+            >
+              Export CSV
+            </button>
+          </>
         }
       />
-      <div className="toolbar">
+      <div className="toolbar no-print">
         <select aria-label="Period" value={preset} onChange={(e) => set({ period: e.target.value })}>
           {options(periodPresets).map((o) => (
             <option key={o.value} value={o.value}>

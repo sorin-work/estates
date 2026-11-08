@@ -1,5 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
 import { Suspense, useState } from 'react';
 import { NavLink, Outlet } from 'react-router';
+import { getReminders } from '../api/dashboard';
 import { useAuth } from '../auth/AuthContext';
 import SearchBox from './SearchBox';
 import { Loading } from './States';
@@ -20,6 +22,8 @@ const nav = [
 export default function Layout() {
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
+  const reminders = useQuery({ queryKey: ['reminders'], queryFn: getReminders });
+  const pressing = reminders.data?.filter((r) => r.severity !== 'info').length ?? 0;
 
   return (
     <div className="app">
@@ -36,6 +40,11 @@ export default function Layout() {
           {nav.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} onClick={() => setOpen(false)}>
               {item.label}
+              {item.to === '/' && pressing > 0 && (
+                <span className="nav-count" aria-label={`${pressing} things need attention`}>
+                  {pressing}
+                </span>
+              )}
             </NavLink>
           ))}
         </nav>

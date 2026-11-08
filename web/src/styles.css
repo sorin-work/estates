@@ -194,6 +194,8 @@ h3 {
 }
 
 .sidebar nav a {
+  display: flex;
+  align-items: center;
   color: #c4d1cb;
   padding: 0.5rem 0.75rem;
   border-radius: 8px;
@@ -1421,4 +1423,17 @@ input[type='checkbox'] {
   .card .table {
     min-width: 34rem;
   }
+}
+
+.nav-count {
+  margin-left: auto;
+  min-width: 1.4rem;
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: var(--bad);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.4rem;
+  text-align: center;
 }

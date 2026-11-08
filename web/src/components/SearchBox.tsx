@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useId, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router';
 import { search } from '../api/search';
 import type { SearchHit } from '../api/types';
@@ -37,6 +37,20 @@ export default function SearchBox({ onNavigate }: { onNavigate?: () => void }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
   const q = useDebounced(text.trim(), 200);
+  const input = useRef<HTMLInputElement>(null);
+
+  // "/" jumps to the search box from anywhere that is not a form field.
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return;
+      e.preventDefault();
+      input.current?.focus();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
 
   const { data: hits = [] } = useQuery({
     queryKey: ['search', q],
@@ -77,6 +91,7 @@ export default function SearchBox({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <div className="search">
       <input
+        ref={input}
         type="search"
         role="combobox"
         aria-label="Search"
@@ -84,7 +99,7 @@ export default function SearchBox({ onNavigate }: { onNavigate?: () => void }) {
         aria-controls={listId}
         aria-autocomplete="list"
         aria-activedescendant={showList && active >= 0 ? `${listId}-${active}` : undefined}
-        placeholder="Search…"
+        placeholder="Search…  /"
         value={text}
         onChange={(e) => {
           setText(e.target.value);

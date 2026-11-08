@@ -46,4 +46,21 @@ describe('SearchBox', () => {
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
+
+  it('is focused by pressing /', async () => {
+    mockFetch({});
+    renderWithProviders(
+      <>
+        <SearchBox />
+        <input aria-label="Notes" />
+      </>,
+    );
+    await userEvent.keyboard('/');
+    expect(screen.getByRole('combobox')).toHaveFocus();
+
+    // Typing a slash in another field is left alone.
+    await userEvent.click(screen.getByLabelText('Notes'));
+    await userEvent.keyboard('a/b');
+    expect(screen.getByLabelText('Notes')).toHaveValue('a/b');
+  });
 });

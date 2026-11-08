@@ -10,6 +10,7 @@ import (
 
 func (s *Server) rentRoutes(r chi.Router) {
 	r.Get("/balances", s.handle(s.rentBalances))
+	r.Get("/balances.csv", s.handle(s.rentBalancesCSV))
 	r.Post("/run", s.handle(s.runBilling))
 }
 
@@ -40,4 +41,24 @@ func (s *Server) runBilling(w http.ResponseWriter, r *http.Request) error {
 	}
 	writeJSON(w, http.StatusOK, res)
 	return nil
+}
+
+// rentBalancesCSV is the rent roll as a spreadsheet.
+func (s *Server) rentBalancesCSV(w http.ResponseWriter, r *http.Request) error {
+	today := s.today()
+	balances, err := s.billing.Balances(r.Context(), userID(r), today)
+	if err != nil {
+		return err
+	}
+	rows := make([][]string, len(balances))
+	for i, b := range balances {
+		late := ""
+		if b.OldestOverdue != nil {
+			late = b.OldestOverdue.String()
+		}
+		rows[i] = []string{b.Lease.TenantName, b.Lease.PropertyName, b.Lease.UnitLabel, b.Lease.Status,
+			csvMoney(b.Lease.CurrentRentCents), csvMoney(b.BalanceCents), csvMoney(b.OverdueCents), late}
+	}
+	return writeCSV(w, "rent-roll-"+today.String()+".csv",
+		[]string{"Tenant", "Property", "Unit", "Status", "Rent", "Balance", "Overdue", "Overdue since"}, rows)
 }

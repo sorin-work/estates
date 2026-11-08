@@ -77,6 +77,7 @@ only changes how amounts are shown.
 | DELETE | `/api/payments/{id}`         |                                                             |
 | GET    | `/api/payments/{id}/receipt` | Landlord, tenant, property and the balance after it         |
 | GET    | `/api/rent/balances`         | The rent roll; `?overdue=true` for late leases only         |
+| GET    | `/api/rent/balances.csv`     | The rent roll as a spreadsheet                              |
 | POST   | `/api/rent/run`              | Generate due rent and late fees now                         |
 
 ## Maintenance, vendors and expenses

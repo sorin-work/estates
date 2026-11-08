@@ -117,3 +117,19 @@ func TestPaymentReceipt(t *testing.T) {
 	other := newDBServerFor(t, c, "other@example.com")
 	other.mustStatus(http.StatusNotFound, "GET", "/api/payments/"+second.ID+"/receipt", nil)
 }
+
+func TestRentRollCSV(t *testing.T) {
+	c := newDBServer(t, "2026-03-15")
+	l := newLease(t, c, map[string]any{"rent_cents": 150000})
+	c.mustStatus(http.StatusCreated, "POST", "/api/leases/"+l.ID+"/payments", map[string]any{"amount_cents": 150000, "paid_on": "2026-01-02"})
+
+	res := c.mustStatus(http.StatusOK, "GET", "/api/rent/balances.csv", nil)
+	want := "Tenant,Property,Unit,Status,Rent,Balance,Overdue,Overdue since\n" +
+		"Rosa Parks,Alder House,Main,active,1500.00,3000.00,3000.00,2026-02-01\n"
+	if string(res.Body) != want {
+		t.Errorf("rent roll csv:\n%s", res.Body)
+	}
+	if cd := res.Header.Get("Content-Disposition"); !strings.Contains(cd, "rent-roll-2026-03-15.csv") {
+		t.Errorf("filename %q", cd)
+	}
+}

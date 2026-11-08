@@ -1410,3 +1410,15 @@ input[type='checkbox'] {
 .sort-button:hover {
   color: var(--text);
 }
+
+/* Wide tables scroll sideways inside their card instead of spilling out of
+   it on a phone. */
+@media (max-width: 720px) {
+  .card {
+    overflow-x: auto;
+  }
+
+  .card .table {
+    min-width: 34rem;
+  }
+}

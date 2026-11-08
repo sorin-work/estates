@@ -48,4 +48,14 @@ describe('RentPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Balance' }));
     expect(tenantsInOrder()).toEqual(['Tom Becker', 'Sofia Rossi', 'Priya Raman']);
   });
+
+  it('reads the payments month from the address', async () => {
+    const calls = mockFetch({
+      'GET /api/rent/balances': { body: [] },
+      'GET /api/payments': { body: { payments: [], total: 0, page_total_cents: 0 } },
+    });
+    renderWithProviders(<RentPage />, { route: '/rent?month=2026-02' });
+    expect(await screen.findByRole('heading', { name: 'Payments in February 2026' })).toBeInTheDocument();
+    expect(calls.some((c) => c.url.includes('from=2026-02-01&to=2026-02-28'))).toBe(true);
+  });
 });

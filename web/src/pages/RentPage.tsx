@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { exportBalances, exportPayments, listBalances, listPayments, runBilling } from '../api/rent';
 import type { Balance } from '../api/types';
 import PageHeader from '../components/PageHeader';
@@ -26,7 +26,10 @@ const PAGE_SIZE = 25;
 export default function RentPage() {
   const queryClient = useQueryClient();
   const [overdueOnly, setOverdueOnly] = useState(false);
-  const [month, setMonth] = useState(today().slice(0, 7));
+  // The month is in the address so it survives a reload and can be shared.
+  const [params, setParams] = useSearchParams();
+  const month = /^\d{4}-\d{2}$/.test(params.get('month') ?? '') ? params.get('month')! : today().slice(0, 7);
+  const setMonth = (m: string) => setParams({ month: m }, { replace: true });
   const [page, setPage] = useState(0);
   // Unsorted, the rent roll comes most overdue first.
   const [sort, setSort] = useState<SortState<RollColumn>>({ key: null, dir: 'asc' });

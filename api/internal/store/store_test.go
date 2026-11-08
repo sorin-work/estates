@@ -485,3 +485,27 @@ func TestVacantUnits(t *testing.T) {
 		t.Errorf("let unit %+v", u)
 	}
 }
+
+func TestRentChargesCannotBeDeleted(t *testing.T) {
+	f := setup(t)
+	id := f.lease(t, "2026-01-01", "2026-12-31")
+	l, _ := f.st.GetLease(ctx, f.owner, id)
+	if _, err := f.st.InsertRent(ctx, id, domain.RentSchedule(l.Terms(), d("2026-01-10"))); err != nil {
+		t.Fatal(err)
+	}
+	water, err := f.st.CreateCharge(ctx, f.owner, id, store.ChargeInput{Kind: "utility", AmountCents: 4200, DueDate: d("2026-01-15")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	charges, _ := f.st.ListCharges(ctx, f.owner, id)
+
+	if err := f.st.DeleteCharge(ctx, f.owner, charges[0].ID); !errors.Is(err, store.ErrConflict) {
+		t.Errorf("deleting rent: %v", err)
+	}
+	if err := f.st.DeleteCharge(ctx, f.owner, water); err != nil {
+		t.Errorf("deleting a utility charge: %v", err)
+	}
+	if err := f.st.DeleteCharge(ctx, f.owner, water); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("deleting it twice: %v", err)
+	}
+}

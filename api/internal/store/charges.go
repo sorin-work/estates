@@ -60,11 +60,22 @@ func (s *Store) CreateCharge(ctx context.Context, ownerID, leaseID string, in Ch
 	return id, notFound(err)
 }
 
+// DeleteCharge removes a one-off charge. Rent comes from the lease terms
+// and billing would only add it again, so it cannot be deleted; change the
+// lease instead.
 func (s *Store) DeleteCharge(ctx context.Context, ownerID, id string) error {
-	return execOne(s.pool.Exec(ctx, `
-		DELETE FROM charges c USING leases l, units u, properties p
-		 WHERE l.id = c.lease_id AND u.id = l.unit_id AND p.id = u.property_id
-		   AND p.owner_id = $1 AND c.id = $2`, ownerID, id))
+	var kind string
+	err := s.pool.QueryRow(ctx, `
+		SELECT c.kind FROM charges c
+		  JOIN leases l ON l.id = c.lease_id`+ownedLease+`
+		 WHERE c.id = $2`, ownerID, id).Scan(&kind)
+	if err != nil {
+		return notFound(err)
+	}
+	if kind == domain.ChargeRent {
+		return conflict("rent comes from the lease terms; edit or end the lease instead")
+	}
+	return execOne(s.pool.Exec(ctx, `DELETE FROM charges WHERE id = $1`, id))
 }
 
 // InsertRent adds scheduled rent charges, skipping periods that already have

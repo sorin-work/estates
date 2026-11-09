@@ -1,32 +1,53 @@
 # estates
 
 A small property management app for landlords with a handful of buildings:
-properties and units, tenants, leases, rent and payments, maintenance and
-expenses, with a dashboard that shows what needs attention.
+properties and units, tenants, leases, rent and payments, deposits,
+maintenance, vendors and expenses, with a dashboard that shows what needs
+attention and a profit and loss report per property.
 
 ## Features
 
 - **Properties and units**: houses, duplexes, apartment buildings and condos,
-  each with its units (beds, baths, size, market rent) and live occupancy.
+  each with its units (beds, baths, size, market rent), live occupancy and
+  how long a vacant unit has been empty.
 - **Tenants**: contact details, notes and lease history, with search.
 - **Leases**: term, rent, deposit, due day, grace period and late fee. A unit
-  cannot be let twice for the same dates. Leases can be ended early.
+  cannot be let twice for the same dates. Leases can be ended early (the
+  final month is prorated), renewed into a follow-on lease, and have rent
+  increases from a date.
 - **Rent**: monthly rent charges are generated automatically from each lease,
   with the first and last partial months prorated by day. Payments are applied
   to the oldest charges first, so every lease has a clear balance and
   "overdue since" date. Late fees are added once per missed month after the
   grace period.
 - **Rent roll**: every active lease with its balance, overdue amount and how
-  long it has been late, plus all payments received in a month.
+  long it has been late, sortable by any column, plus all payments received
+  in a month. Payments can be corrected and printed as numbered receipts.
+- **Deposits**: kept apart from rent. Record what was received, returned to
+  the tenant or withheld for damage, and see what is still held.
 - **Maintenance**: requests per property or unit with a priority and a status
   workflow (open → in progress / on hold → completed or cancelled, closed
   requests can be reopened). Expenses can be linked to a request to track
   its cost.
+- **Vendors**: the plumbers, electricians and others you call, with their
+  open jobs and what you have spent with them.
 - **Expenses**: per property, by category (repairs, taxes, insurance,
-  mortgage, utilities, HOA...), with totals for any period.
-- **Dashboard**: occupancy, rent collected vs charged this month, overdue
-  rent, leases ending in the next 60 days, open maintenance and a 12 month
-  income vs expenses chart.
+  mortgage, utilities, HOA...), with totals for any period. Mortgage
+  payments, HOA dues and premiums can be set up as recurring expenses that
+  are added when they fall due.
+- **Reports**: profit and loss per property for any period, and CSV exports
+  of the report, payments and expenses for your bookkeeper.
+- **Documents**: signed leases, ID copies and inspection reports attached to
+  a tenant, lease or property (PDFs, images and office files up to 10 MB).
+- **Dashboard**: a to-do list of reminders (leases ending without a renewal,
+  deposits to return, move-ins, rent increases, repairs left open), occupancy,
+  rent collected vs charged this month, overdue rent, deposits held, leases
+  ending in the next 60 days, open maintenance and a 12 month income vs
+  expenses chart.
+- **Activity**: a history of what was added, changed or deleted, for the
+  whole account and for each lease.
+- **Everything else**: quick search from the sidebar, a currency setting,
+  dark mode, keyboard and screen reader friendly forms and dialogs.
 
 ## Stack
 

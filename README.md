@@ -179,3 +179,20 @@ fee is added per overdue rent charge. Late fees are only added for rent that
 became overdue in the last 30 days, so entering an existing lease with its
 history does not pile up fees for months whose payments have not been typed
 in yet.
+
+Changing a lease's rent, dates or due day updates the charges already
+generated to match. A rent change applies to each period that starts on or
+after its date, so an increase from the 15th of a month starts with the next
+due date. Ending a lease early removes rent due after the last day and
+prorates the final period to the days the tenant still had the unit.
+
+## How deposits work
+
+A deposit is the tenant's money, so it is not rent and never counts as
+income or as a payment on the ledger. Each lease keeps its own record of
+the deposit received, returned and withheld. Withheld amounts (cleaning,
+repairs, unpaid rent) count as income in the profit and loss report. When a
+lease is renewed the deposit moves to the new lease. Once a tenant moves
+out the dashboard reminds you to return the deposit; the deadline (30 days
+by default) is set in Settings.
+

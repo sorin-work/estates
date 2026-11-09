@@ -86,6 +86,29 @@ The ports can be changed with `WEB_PORT`, `API_PORT` and `DB_PORT`. The API
 applies migrations when it starts. Data lives in the `db-data` volume;
 `docker compose down -v` removes it.
 
+Uploaded documents are stored in the database too, so one dump backs up
+everything:
+
+```bash
+docker compose exec db pg_dump -U estates estates > estates-backup.sql
+```
+
+## Configuration
+
+The API reads its settings from the environment:
+
+| Variable           | Default  | Notes                                                       |
+| ------------------ | -------- | ----------------------------------------------------------- |
+| `DATABASE_URL`     |          | Required. A Postgres connection string                      |
+| `JWT_SECRET`       |          | Required, at least 32 characters. Signs login tokens        |
+| `ADDR`             | `:4200`  | Address to listen on                                        |
+| `TOKEN_TTL`        | `168h`   | How long a login lasts                                      |
+| `BILLING_INTERVAL` | `1h`     | How often rent, late fees and recurring expenses are added  |
+| `LOG_LEVEL`        | `info`   | `debug`, `info`, `warn` or `error`                          |
+| `LOG_FORMAT`       | `json`   | `json` or `text`                                            |
+| `SEED_DEMO`        | `false`  | Create the demo account on start (Docker Compose sets it)   |
+| `CORS_ORIGINS`     |          | Comma separated origins allowed to call the API directly    |
+
 ## Running locally
 
 You need Go 1.26+, Node 22+ and a Postgres database. The easiest is to run
@@ -114,6 +137,9 @@ npm run dev
 
 ## Tests and checks
 
+`make help` lists shortcuts for the commands below (`make test`, `make lint`,
+`make up`...).
+
 ```bash
 # API: unit tests always run; database tests run when TEST_DATABASE_URL is set.
 cd api
@@ -133,15 +159,18 @@ they can share the development database.
 
 ## Project layout
 
+The endpoints are listed in [docs/api.md](docs/api.md).
+
 ```
 api/
   cmd/api/              entry point: config, migrations, demo seed, HTTP server
   internal/
     auth/               bcrypt passwords and JWT tokens
-    billing/            rent and late fee generation, lease balances
+    billing/            rent, late fees and recurring expenses, lease balances
     config/             environment configuration
     database/           pgx pool and embedded SQL migrations
-    domain/             dates, rent schedules, ledgers, lease and maintenance rules
+    domain/             dates, rent schedules, ledgers, deposits, recurrences,
+                        reminders, lease and maintenance rules
     httpapi/            router, middleware and JSON handlers
     seed/               demo data
     store/              Postgres queries, scoped to the owning user
@@ -151,7 +180,7 @@ web/
     api/                typed API client
     auth/               auth context and route guards
     components/         shared UI and forms
-    lib/                money, date and label helpers
+    lib/                money, date, sorting, theme and label helpers
     pages/              one component per route
 ```
 

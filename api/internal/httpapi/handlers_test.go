@@ -216,6 +216,13 @@ func TestUpdateSettings(t *testing.T) {
 	if me.TimeZone != "UTC" {
 		t.Errorf("default time zone %q", me.TimeZone)
 	}
+	var view struct {
+		Today string `json:"today"`
+	}
+	c.mustStatus(http.StatusOK, "GET", "/api/auth/me", nil).decode(t, &view)
+	if view.Today != "2026-03-10" {
+		t.Errorf("today = %q, want the server's 2026-03-10", view.Today)
+	}
 
 	c.mustStatus(http.StatusOK, "PUT", "/api/auth/me", map[string]any{"name": "Lee", "currency": "EUR", "deposit_return_days": 21, "time_zone": "America/Los_Angeles"}).decode(t, &me)
 	if me.TimeZone != "America/Los_Angeles" {

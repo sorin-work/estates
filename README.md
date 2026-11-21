@@ -92,9 +92,9 @@ applies migrations when it starts. Data lives in the `db-data` volume;
 Uploaded documents are stored in the database too, so one dump backs up
 everything. The `backup` service takes one a day into `./backups` and
 keeps the newest 14 (`BACKUP_INTERVAL`, `BACKUP_KEEP`); `make backup` takes
-one now and `make restore FILE=...` puts one back. How to restore, check a
-backup, keep a copy elsewhere and upgrade safely is in
-[docs/backups.md](docs/backups.md).
+one now and `make restore FILE=...` restores one into a fresh database and
+swaps it in. How to restore, check a backup, keep a copy elsewhere and
+upgrade safely is in [docs/backups.md](docs/backups.md).
 
 ## Configuration
 
@@ -260,7 +260,9 @@ one; the page offers the zone your device is in). It decides when rent
 falls due, when it becomes overdue, which month the dashboard calls this
 month and when reminders appear. Because the job runs every hour, a charge
 can show up to an hour after midnight where you are. Dates you type, such as
-payment and expense dates, are never shifted.
+payment and expense dates, are never shifted, and the forms fill in today's
+date in your account's zone, with a note when your device is set to a
+different one.
 
 A charge is overdue once its grace period has passed: rent due on the 1st
 with 5 days grace is overdue from the 7th. If the lease has a late fee, one

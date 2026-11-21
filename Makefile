@@ -16,11 +16,8 @@ down: ## Stop the stack (data is kept)
 backup: ## Take a database backup now, into ./backups
 	docker compose run --rm backup once
 
-restore: ## Restore a backup: make restore FILE=backups/estates-....dump
-	@test -n "$(FILE)" || { echo "usage: make restore FILE=backups/estates-....dump"; exit 1; }
-	docker compose stop api
-	docker compose exec -T db pg_restore -U estates -d estates --clean --if-exists --no-owner < "$(FILE)"
-	docker compose start api
+restore: ## Restore a backup into a new database and swap it in: make restore FILE=...
+	scripts/restore.sh "$(FILE)"
 
 db: ## Start only Postgres, for running the API and web app locally
 	docker compose up -d db

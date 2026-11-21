@@ -659,17 +659,21 @@ dates its history from the UTC date.
 
 A `backup` service in `docker-compose.yml` runs `scripts/backup.sh` on the
 `postgres:17-alpine` image once the database is healthy: a `pg_dump -Fc`
-into `./backups` (`BACKUP_PATH`) at start and every `BACKUP_INTERVAL`
-(default a day), written under a temporary name and renamed when complete,
-keeping the newest `BACKUP_KEEP` (default 14). A failed dump is logged and
-retried at the next interval. `make backup` takes one now and `make restore
-FILE=...` stops the API, restores with `pg_restore --clean --if-exists` and
-starts it again. `docs/backups.md` covers restoring on the same or a new
-machine, checking a dump, copying backups elsewhere and upgrading. The CI
-docker job takes a backup of the demo data and restores it into a second
-database. Shipping dumps to object storage is left to the reader, with
-`rclone` and `aws s3 sync` as examples, as planned. The dumps are owned by
-root on the host.
+into `./backups` (`BACKUP_PATH`) at start, unless the newest dump is less
+than an interval old, and every `BACKUP_INTERVAL` (default a day). Dumps are
+written under a hidden `.partial` name and renamed when complete, readable
+by their owner only (`umask 077`), and the newest `BACKUP_KEEP` (default 14)
+scheduled dumps are kept; the dump just written and any dated in the future
+are never pruned. Manual dumps (`make backup`) are named `estates-manual-*`
+and never pruned. Stale partial files are swept on start and a stop signal
+removes the one in progress. `scripts/restore.sh` (`make restore FILE=...`)
+restores into a fresh database in one transaction, stops the API, refuses
+while anything else is connected, and swaps the databases by renaming,
+keeping the old one. `docs/backups.md` covers all of that, copies off the
+machine and upgrading. The CI docker job takes a manual backup, adds a
+table, restores with the script and checks the table is gone and the API
+signs in. Shipping dumps to object storage is left to the reader, as
+planned. Dumps are owned by root on the host, so reading them needs `sudo`.
 
 ### 5. Tenant statements
 

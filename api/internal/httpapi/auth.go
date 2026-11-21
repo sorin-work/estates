@@ -23,9 +23,28 @@ type userStore interface {
 }
 
 type authResponse struct {
-	Token     string     `json:"token"`
-	ExpiresAt time.Time  `json:"expires_at"`
-	User      store.User `json:"user"`
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expires_at"`
+	User      userView  `json:"user"`
+}
+
+// userView is the signed in user as the API shows them, with today's date
+// in their time zone, so clients fill in the same "today" the API checks
+// against.
+type userView struct {
+	store.User
+	Today domain.Date `json:"today"`
+}
+
+func (s *Server) userView(u store.User) userView {
+	if s.fixedToday != nil {
+		return userView{User: u, Today: s.fixedToday()}
+	}
+	loc, err := domain.LoadZone(u.TimeZone)
+	if err != nil {
+		loc = time.UTC
+	}
+	return userView{User: u, Today: domain.TodayIn(s.now(), loc)}
 }
 
 func (s *Server) issue(w http.ResponseWriter, status int, u store.User) error {
@@ -33,7 +52,7 @@ func (s *Server) issue(w http.ResponseWriter, status int, u store.User) error {
 	if err != nil {
 		return err
 	}
-	writeJSON(w, status, authResponse{Token: token, ExpiresAt: exp, User: u})
+	writeJSON(w, status, authResponse{Token: token, ExpiresAt: exp, User: s.userView(u)})
 	return nil
 }
 
@@ -193,7 +212,7 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	writeJSON(w, http.StatusOK, u)
+	writeJSON(w, http.StatusOK, s.userView(u))
 	return nil
 }
 

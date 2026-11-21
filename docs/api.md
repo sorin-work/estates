@@ -31,7 +31,9 @@ code `too_many_attempts` and a `Retry-After` header in seconds. With
 
 `time_zone` is an IANA name such as `America/Denver` and decides what
 "today" is for that landlord. Leaving it out keeps the saved one; accounts
-start in `UTC`.
+start in `UTC`. The user in every response (`/api/auth/me`, login,
+register) carries `today`, the date it is in their zone, so a client can
+default date fields to the same day the API checks against.
 
 `currency` is one of USD, CAD, EUR, GBP, AUD, NZD, CHF, SEK, PLN or RON. It
 only changes how amounts are shown.

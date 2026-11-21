@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { Payment, PaymentInput, PaymentMethod } from '../../api/types';
-import { today } from '../../lib/dates';
+import { accountZoneHint, today } from '../../lib/dates';
 import { options, paymentMethods } from '../../lib/labels';
 import { centsToInput, parseMoney } from '../../lib/money';
 import Field from '../Field';
@@ -46,7 +46,7 @@ export default function PaymentForm({
         <Field label="Amount" error={errors.amount_cents}>
           {(id) => <MoneyInput id={id} value={amount} onChange={(e) => setAmount(e.target.value)} />}
         </Field>
-        <Field label="Received on" error={errors.paid_on}>
+        <Field label="Received on" error={errors.paid_on} hint={accountZoneHint()}>
           {(id) => (
             <input id={id} type="date" value={paidOn} max={today()} onChange={(e) => setPaidOn(e.target.value)} />
           )}

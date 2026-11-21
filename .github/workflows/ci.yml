@@ -82,15 +82,24 @@ jobs:
           curl -fsS -X POST http://localhost:5175/api/auth/login \
             -H 'Content-Type: application/json' \
             -d '{"email":"demo@example.com","password":"demo-password"}' > /dev/null
-      - name: Back up and restore into a second database
+      - name: Back up and restore
         run: |
           docker compose run --rm backup once
-          dump=$(ls backups/estates-*.dump | sort | tail -n 1)
-          docker compose exec -T db createdb -U estates restore_check
-          docker compose exec -T db pg_restore -U estates -d restore_check --no-owner < "$dump"
-          users=$(docker compose exec -T db psql -U estates -d restore_check -tAc 'SELECT count(*) FROM users')
-          echo "users in the restored copy: $users"
+          dump=$(sudo sh -c 'ls backups/estates-manual-*.dump' | tail -n 1)
+          sudo cat "$dump" > restore-me.dump
+          # Something the backup does not have, which the restore must undo.
+          docker compose exec -T db psql -U estates -d estates -c 'CREATE TABLE after_backup (id int)'
+          docker compose stop backup
+          scripts/restore.sh restore-me.dump
+          users=$(docker compose exec -T db psql -U estates -d estates -tAc 'SELECT count(*) FROM users')
+          echo "users after the restore: $users"
           test "$users" -gt 0
+          test "$(docker compose exec -T db psql -U estates -d estates -tAc "SELECT to_regclass('after_backup') IS NULL")" = t
+          docker compose exec -T db psql -U estates -d postgres -tAc "SELECT datname FROM pg_database WHERE datname LIKE 'estates_before_restore_%'" | grep -q .
+          for i in $(seq 1 30); do curl -fsS http://localhost:4200/healthz && break; sleep 2; done
+          curl -fsS -X POST http://localhost:5175/api/auth/login \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"demo@example.com","password":"demo-password"}' > /dev/null
       - name: Logs
         if: failure()
         run: docker compose logs

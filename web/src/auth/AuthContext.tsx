@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import * as authApi from '../api/auth';
 import { getToken, setToken, UNAUTHORIZED_EVENT } from '../api/client';
 import type { User } from '../api/types';
+import { setAccountTimeZone } from '../lib/dates';
 import { setCurrency } from '../lib/money';
 
 interface AuthState {
@@ -23,6 +24,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
   const setUser = useCallback((u: User | null) => {
     setCurrency(u?.currency ?? 'USD');
+    setAccountTimeZone(u?.time_zone ?? '');
     setUserState(u);
   }, []);
   const [loading, setLoading] = useState(() => getToken() !== null);

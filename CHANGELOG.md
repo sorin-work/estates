@@ -14,7 +14,9 @@
 
 - A time zone setting. Rent, late fees, recurring expenses, reminders and
   "this month" follow the landlord's date instead of the UTC date. Accounts
-  start in UTC, so nothing moves until a zone is picked.
+  start in UTC, so nothing moves until a zone is picked. The signed in user
+  carries `today` in their zone, and the web forms use the account's zone
+  for today's date.
 
 - The web app is served with a content security policy, `nosniff`,
   `X-Frame-Options: DENY`, a referrer policy and a permissions policy.

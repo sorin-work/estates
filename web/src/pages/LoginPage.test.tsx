@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { describe, expect, it } from 'vitest';
@@ -37,7 +37,10 @@ describe('LoginPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
 
     expect(await screen.findByText('Dashboard home')).toBeInTheDocument();
-    expect(calls[0]?.body).toEqual({ email: 'demo@example.com', password: 'demo-password' });
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual({
+      email: 'demo@example.com',
+      password: 'demo-password',
+    });
     expect(getToken()).toBe('tok-123');
   });
 
@@ -56,5 +59,33 @@ describe('LoginPage', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('email or password is incorrect');
     expect(screen.queryByText('Dashboard home')).not.toBeInTheDocument();
+  });
+
+  it('says how long to wait after too many attempts', async () => {
+    mockFetch({
+      'POST /api/auth/login': {
+        status: 429,
+        body: { error: { code: 'too_many_attempts', message: 'too many attempts, try again in 3 minutes' } },
+      },
+    });
+    renderLogin();
+
+    await userEvent.type(screen.getByLabelText('Email'), 'demo@example.com');
+    await userEvent.type(screen.getByLabelText('Password'), 'demo-password');
+    await userEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('try again in 3 minutes');
+  });
+
+  it('offers sign-up only while the server takes new accounts', async () => {
+    mockFetch({ 'GET /api/auth/config': { body: { registration_open: false } } });
+    renderLogin();
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'Create an account' })).not.toBeInTheDocument());
+  });
+
+  it('offers sign-up when it is open', async () => {
+    mockFetch({ 'GET /api/auth/config': { body: { registration_open: true } } });
+    renderLogin();
+    expect(await screen.findByRole('link', { name: 'Create an account' })).toBeInTheDocument();
   });
 });

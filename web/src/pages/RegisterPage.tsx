@@ -1,5 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { authConfig } from '../api/auth';
 import { useAuth } from '../auth/AuthContext';
 import Field from '../components/Field';
 import { FormError } from '../components/States';
@@ -12,6 +14,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const { submitting, error, errors, run } = useFormSubmit();
+  const config = useQuery({ queryKey: ['auth-config'], queryFn: authConfig, staleTime: Infinity });
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -21,6 +24,24 @@ export default function RegisterPage() {
       await register({ name, email, password });
       navigate('/', { replace: true });
     }, local);
+  }
+
+  if (config.data?.registration_open === false) {
+    return (
+      <div className="auth-page">
+        <div className="auth-card">
+          <div className="brand">
+            <img src="/favicon.svg" alt="" width={32} height={32} />
+            <span>Estates</span>
+          </div>
+          <h1>Sign-up is closed</h1>
+          <p>This server does not take new accounts. Ask whoever runs it to create one for you.</p>
+          <p className="muted center">
+            Already have an account? <Link to="/login">Sign in</Link>
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

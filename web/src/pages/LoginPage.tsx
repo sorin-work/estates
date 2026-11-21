@@ -1,5 +1,7 @@
+import { useQuery } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
+import { authConfig } from '../api/auth';
 import { ApiError } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 
@@ -13,6 +15,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const config = useQuery({ queryKey: ['auth-config'], queryFn: authConfig, staleTime: Infinity });
+  // Offer sign-up unless the server says it is closed.
+  const canRegister = config.data?.registration_open !== false;
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -66,9 +71,11 @@ export default function LoginPage() {
         <button type="submit" className="button block" disabled={submitting}>
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>
-        <p className="muted center">
-          New here? <Link to="/register">Create an account</Link>
-        </p>
+        {canRegister && (
+          <p className="muted center">
+            New here? <Link to="/register">Create an account</Link>
+          </p>
+        )}
       </form>
     </div>
   );

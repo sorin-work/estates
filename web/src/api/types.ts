@@ -17,6 +17,11 @@ export interface AuthResponse {
   user: User;
 }
 
+/** What the sign-in pages may offer on this server. */
+export interface AuthConfig {
+  registration_open: boolean;
+}
+
 export type PropertyKind = 'single_family' | 'multi_family' | 'condo' | 'townhouse' | 'commercial' | 'other';
 
 export interface Property {

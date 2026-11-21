@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { AuthResponse, User } from './types';
+import type { AuthConfig, AuthResponse, User } from './types';
 
 export function login(email: string, password: string) {
   return api<AuthResponse>('/auth/login', { method: 'POST', body: { email, password } });
@@ -7,6 +7,11 @@ export function login(email: string, password: string) {
 
 export function register(input: { name: string; email: string; password: string }) {
   return api<AuthResponse>('/auth/register', { method: 'POST', body: input });
+}
+
+/** Whether new accounts can be created. Needs no token. */
+export function authConfig() {
+  return api<AuthConfig>('/auth/config');
 }
 
 export function me() {

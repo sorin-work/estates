@@ -25,6 +25,9 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-info}
       # Creates demo@example.com / demo-password with a year of sample data.
       SEED_DEMO: ${SEED_DEMO:-true}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      # nginx in the web container passes on the client address.
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.16.0.0/12}
     depends_on:
       db:
         condition: service_healthy

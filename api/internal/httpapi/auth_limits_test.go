@@ -114,6 +114,8 @@ func TestLoginLimitedByAddress(t *testing.T) {
 func TestForwardedForOnlyFromTrustedProxy(t *testing.T) {
 	limited := func(trusted []netip.Prefix) bool {
 		srv := New(Options{Store: newFakeStore(), Tokens: testTokens(t), Logger: quietLogger(), TrustedProxies: trusted})
+		// A stopped clock, so slow password checks do not refill the bucket.
+		srv.limits.loginByAddress.now = newFakeClock().now
 		h := srv.Handler()
 		// Every attempt claims a new client address through the header.
 		for i := range loginsPerAddress + 1 {

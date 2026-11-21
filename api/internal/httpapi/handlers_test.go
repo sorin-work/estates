@@ -46,6 +46,8 @@ func (f *fakeStore) CreateUser(_ context.Context, email, name, hash string) (sto
 	return u, nil
 }
 
+func (f *fakeStore) HasUsers(context.Context) (bool, error) { return len(f.users) > 0, nil }
+
 func (f *fakeStore) UserByEmail(_ context.Context, email string) (store.User, error) {
 	for _, u := range f.users {
 		if strings.EqualFold(u.Email, email) {

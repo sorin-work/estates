@@ -509,3 +509,16 @@ func TestRentChargesCannotBeDeleted(t *testing.T) {
 		t.Errorf("deleting it twice: %v", err)
 	}
 }
+
+func TestHasUsers(t *testing.T) {
+	st := store.New(testdb.New(t))
+	if ok, err := st.HasUsers(ctx); err != nil || ok {
+		t.Fatalf("empty database: HasUsers = %v, %v", ok, err)
+	}
+	if _, err := st.CreateUser(ctx, "owner@example.com", "Owner", "hash"); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := st.HasUsers(ctx); err != nil || !ok {
+		t.Fatalf("after sign-up: HasUsers = %v, %v", ok, err)
+	}
+}

@@ -82,6 +82,15 @@ jobs:
           curl -fsS -X POST http://localhost:5175/api/auth/login \
             -H 'Content-Type: application/json' \
             -d '{"email":"demo@example.com","password":"demo-password"}' > /dev/null
+      - name: Back up and restore into a second database
+        run: |
+          docker compose run --rm backup once
+          dump=$(ls backups/estates-*.dump | sort | tail -n 1)
+          docker compose exec -T db createdb -U estates restore_check
+          docker compose exec -T db pg_restore -U estates -d restore_check --no-owner < "$dump"
+          users=$(docker compose exec -T db psql -U estates -d restore_check -tAc 'SELECT count(*) FROM users')
+          echo "users in the restored copy: $users"
+          test "$users" -gt 0
       - name: Logs
         if: failure()
         run: docker compose logs

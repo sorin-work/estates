@@ -38,6 +38,7 @@ type Store interface {
 	documentStore
 	searchStore
 	dashboardStore
+	statementStore
 }
 
 // Billing generates charges and works out lease balances.

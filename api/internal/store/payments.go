@@ -201,3 +201,28 @@ func (s *Store) LedgerEntries(ctx context.Context, ownerID, leaseID string) (map
 	}
 	return out, rows.Err()
 }
+
+// StatementPayments returns every payment on one of the owner's leases,
+// oldest first, as statement entries. Unlike ListPayments it has no page
+// size: a statement must never leave a payment out.
+func (s *Store) StatementPayments(ctx context.Context, ownerID, leaseID string) ([]domain.StatementEntry, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT pm.id, pm.paid_on, pm.method, pm.reference, pm.amount_cents
+		  FROM payments pm
+		  JOIN leases l ON l.id = pm.lease_id`+ownedLease+`
+		 WHERE pm.lease_id = $2
+		 ORDER BY pm.paid_on, pm.created_at`, ownerID, leaseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []domain.StatementEntry{}
+	for rows.Next() {
+		e := domain.StatementEntry{Payment: true}
+		if err := rows.Scan(&e.ID, &e.Date, &e.Kind, &e.Description, &e.AmountCents); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}

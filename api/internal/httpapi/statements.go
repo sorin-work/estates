@@ -1,10 +1,10 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/sorin-work/estates/api/internal/domain"
-	"github.com/sorin-work/estates/api/internal/store"
 )
 
 type statementResponse struct {
@@ -18,8 +18,14 @@ type statementResponse struct {
 	letterhead
 }
 
-// leaseStatement is a printable account of a lease over a period, by
-// default from its start to today.
+type statementStore interface {
+	StatementPayments(ctx context.Context, ownerID, leaseID string) ([]domain.StatementEntry, error)
+}
+
+// leaseStatement is a printable account of a lease over a period. By
+// default it runs from the lease start, or from the first charge or
+// payment if one came earlier (a deposit or rent paid before move-in), to
+// today.
 func (s *Server) leaseStatement(w http.ResponseWriter, r *http.Request) error {
 	l, err := s.loadLease(r)
 	if err != nil {
@@ -34,36 +40,36 @@ func (s *Server) leaseStatement(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	if from.IsZero() {
-		from = l.StartDate
-	}
-	if to.IsZero() {
-		to = today
-	}
-	if to.Before(from) {
-		return errBadRequest("to must not be before from")
-	}
 
 	ctx, owner := r.Context(), userID(r)
 	charges, err := s.store.ListCharges(ctx, owner, l.ID)
 	if err != nil {
 		return err
 	}
-	// Every payment, like the ledger: older ones make the opening balance.
-	payments, _, err := s.store.ListPayments(ctx, owner, store.PaymentFilter{LeaseID: l.ID, Limit: 500})
+	// Every payment, however many: older ones make the opening balance.
+	entries, err := s.store.StatementPayments(ctx, owner, l.ID)
 	if err != nil {
 		return err
 	}
-	entries := make([]domain.StatementEntry, 0, len(charges)+len(payments))
 	for _, c := range charges {
 		entries = append(entries, domain.StatementEntry{
 			ID: c.ID, Date: c.DueDate, Kind: c.Kind, Description: c.Description, AmountCents: c.AmountCents,
 		})
 	}
-	for _, p := range payments {
-		entries = append(entries, domain.StatementEntry{
-			ID: p.ID, Date: p.PaidOn, Payment: true, Kind: p.Method, Description: p.Reference, AmountCents: p.AmountCents,
-		})
+
+	if from.IsZero() {
+		from = l.StartDate
+		for _, e := range entries {
+			if e.Date.Before(from) {
+				from = e.Date
+			}
+		}
+	}
+	if to.IsZero() {
+		to = today
+	}
+	if to.Before(from) {
+		return errBadRequest("to must not be before from")
 	}
 
 	head, err := s.loadLetterhead(r, l)

@@ -23,7 +23,9 @@ func TestLeaseStatement(t *testing.T) {
 		"rent_cents": 100000, "due_day": 1, "grace_days": 5,
 	}).decode(t, &lease)
 	for _, p := range []map[string]any{
-		{"amount_cents": 100000, "paid_on": "2026-01-01", "method": "bank_transfer"},
+		// Paid before the lease starts: the default period must show it.
+		{"amount_cents": 20000, "paid_on": "2025-12-20", "method": "cash"},
+		{"amount_cents": 80000, "paid_on": "2026-01-01", "method": "bank_transfer"},
 		{"amount_cents": 50000, "paid_on": "2026-02-04", "method": "check", "reference": "#104"},
 	} {
 		c.mustStatus(http.StatusCreated, "POST", "/api/leases/"+lease.ID+"/payments", p)
@@ -50,13 +52,14 @@ func TestLeaseStatement(t *testing.T) {
 		} `json:"property"`
 	}
 
-	// By default: from the lease start to today. January to March rent,
-	// two payments.
+	// By default: from the first payment, before the lease started, to
+	// today. January to March rent, three payments.
 	c.mustStatus(http.StatusOK, "GET", "/api/leases/"+lease.ID+"/statement", nil).decode(t, &st)
-	if st.From != "2026-01-01" || st.To != "2026-03-10" || st.OpeningCents != 0 || st.ClosingCents != 150000 {
+	if st.From != "2025-12-20" || st.To != "2026-03-10" || st.OpeningCents != 0 || st.ClosingCents != 150000 {
 		t.Errorf("statement %+v", st)
 	}
-	if len(st.Lines) != 5 || st.Lines[0].Payment || !st.Lines[1].Payment || st.Lines[1].BalanceCents != 0 {
+	if len(st.Lines) != 6 || !st.Lines[0].Payment || st.Lines[0].BalanceCents != -20000 ||
+		st.Lines[1].Payment || !st.Lines[2].Payment || st.Lines[2].BalanceCents != 0 {
 		t.Errorf("lines %+v", st.Lines)
 	}
 	if st.Tenant.Name != "Grace Hopper" || st.Property.Name != "Cedar Flats" || st.Property.UnitLabel != "2" {

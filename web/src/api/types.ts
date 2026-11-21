@@ -22,6 +22,8 @@ export interface AuthResponse {
 /** What the sign-in pages may offer on this server. */
 export interface AuthConfig {
   registration_open: boolean;
+  /** Whether "forgot password" can send an email. */
+  password_reset: boolean;
 }
 
 export type PropertyKind = 'single_family' | 'multi_family' | 'condo' | 'townhouse' | 'commercial' | 'other';

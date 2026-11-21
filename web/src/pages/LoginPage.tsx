@@ -68,6 +68,11 @@ export default function LoginPage() {
             required
           />
         </div>
+        {config.data?.password_reset && (
+          <p className="small">
+            <Link to="/forgot-password">Forgot your password?</Link>
+          </p>
+        )}
         <button type="submit" className="button block" disabled={submitting}>
           {submitting ? 'Signing in…' : 'Sign in'}
         </button>

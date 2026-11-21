@@ -14,6 +14,16 @@ export function authConfig() {
   return api<AuthConfig>('/auth/config');
 }
 
+/** Asks for a reset link. The answer is the same whether or not the email has an account. */
+export function forgotPassword(email: string) {
+  return api<{ message: string }>('/auth/forgot', { method: 'POST', body: { email } });
+}
+
+/** Sets a new password with the token from the email; signs in. */
+export function resetPassword(input: { token: string; new_password: string }) {
+  return api<AuthResponse>('/auth/reset', { method: 'POST', body: input });
+}
+
 export function me() {
   return api<User>('/auth/me');
 }

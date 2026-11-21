@@ -88,4 +88,13 @@ describe('LoginPage', () => {
     renderLogin();
     expect(await screen.findByRole('link', { name: 'Create an account' })).toBeInTheDocument();
   });
+
+  it('links to password reset when the server can send email', async () => {
+    mockFetch({ 'GET /api/auth/config': { body: { registration_open: true, password_reset: true } } });
+    renderLogin();
+    expect(await screen.findByRole('link', { name: 'Forgot your password?' })).toHaveAttribute(
+      'href',
+      '/forgot-password',
+    );
+  });
 });

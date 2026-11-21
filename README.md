@@ -90,9 +90,9 @@ applies migrations when it starts. Data lives in the `db-data` volume;
 Uploaded documents are stored in the database too, so one dump backs up
 everything. The `backup` service takes one a day into `./backups` and
 keeps the newest 14 (`BACKUP_INTERVAL`, `BACKUP_KEEP`); `make backup` takes
-one now and `make restore FILE=...` puts one back. How to restore, check a
-backup, keep a copy elsewhere and upgrade safely is in
-[docs/backups.md](docs/backups.md).
+one now and `make restore FILE=...` restores one into a fresh database and
+swaps it in. How to restore, check a backup, keep a copy elsewhere and
+upgrade safely is in [docs/backups.md](docs/backups.md).
 
 ## Configuration
 

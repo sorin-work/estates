@@ -88,11 +88,11 @@ applies migrations when it starts. Data lives in the `db-data` volume;
 `docker compose down -v` removes it.
 
 Uploaded documents are stored in the database too, so one dump backs up
-everything:
-
-```bash
-docker compose exec db pg_dump -U estates estates > estates-backup.sql
-```
+everything. The `backup` service takes one a day into `./backups` and
+keeps the newest 14 (`BACKUP_INTERVAL`, `BACKUP_KEEP`); `make backup` takes
+one now and `make restore FILE=...` puts one back. How to restore, check a
+backup, keep a copy elsewhere and upgrade safely is in
+[docs/backups.md](docs/backups.md).
 
 ## Configuration
 

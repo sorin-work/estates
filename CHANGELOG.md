@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Scheduled backups: a `backup` service in Docker Compose dumps the
+  database into `./backups` every `BACKUP_INTERVAL` (a day) and keeps the
+  newest `BACKUP_KEEP` (14). `make backup` and `make restore FILE=...`.
+- `docs/backups.md` on restoring, checking backups, copies off the machine
+  and upgrading.
+
 - A time zone setting. Rent, late fees, recurring expenses, reminders and
   "this month" follow the landlord's date instead of the UTC date. Accounts
   start in UTC, so nothing moves until a zone is picked.

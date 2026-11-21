@@ -58,7 +58,7 @@ heading at the top) are updated in the same pull request.
 | 1   | Slow down password guessing, close sign-up   | Shipped | security      | S    | -          |
 | 2   | Security headers                             | Shipped | security      | S    | -          |
 | 3   | The landlord's time zone decides "today"     | Shipped | rent          | M    | -          |
-| 4   | Scheduled backups and a restore guide        | Next    | ops           | S    | -          |
+| 4   | Scheduled backups and a restore guide        | Shipped | ops           | S    | -          |
 | 5   | Tenant statements                            | Next    | rent          | S    | -          |
 | 6   | Receipts and invoices on expenses            | Later   | expenses      | S    | -          |
 | 7   | Recurring extra charges on a lease           | Later   | rent          | M    | -          |
@@ -95,41 +95,6 @@ heading at the top) are updated in the same pull request.
 | 38  | Interest on deposits                         | Maybe   | deposits      | S    | -          |
 
 ## Next
-
-### 4. Scheduled backups and a restore guide
-
-The README shows one `pg_dump` command and stops there. Everything lives in
-the database, the uploaded documents included (`documents.content`), so a
-lost volume loses the leases, the payment history and the signed PDFs at
-once. There is no schedule, no retention and no written way back.
-
-- A `backup` service in `docker-compose.yml` on the same
-  `postgres:17-alpine` image, running a small shell script from a new
-  `scripts/backup.sh`: `pg_dump -Fc` into a `backups` bind mount every
-  `BACKUP_INTERVAL` (default a day), named by UTC timestamp, keeping the
-  newest `BACKUP_KEEP` (default 14). It writes to a temporary name and
-  renames, so a half-written dump never looks like a good one.
-- A `docs/backups.md` with how to restore into a fresh volume
-  (`pg_restore --clean --if-exists`), how to check a dump without
-  restoring (`pg_restore --list`), and how to copy backups off the machine.
-  A volume on the same disk is not a backup on its own, and the guide
-  should say so.
-- An upgrade section in the same guide: take a backup, pull, `docker
-compose up --build -d`; the API applies migrations on start. Going back
-  means restoring the backup, because migrations are only tested upwards.
-- `make backup` and `make restore FILE=...` shortcuts.
-- Tricky: a dump can be large because of the documents. Custom format
-  compresses, but PDFs and photos barely shrink. Say so, and keep the
-  retention in files, not in days, so it is predictable.
-- Tricky: the backup container must not start before the database is
-  healthy, and must keep going if one run fails (log and wait for the next
-  one) rather than exit and restart in a loop.
-- Undecided: shipping dumps to object storage. Not in this item; the guide
-  can show `rclone` or `aws s3 cp` as an example.
-- Tests: the script is shell, so the check is the docker job: run one
-  backup after the stack is up and restore it into a second database with
-  `pg_restore`. If that is too slow for CI, a `scripts/backup-test.sh` that
-  does the same locally.
 
 ### 5. Tenant statements
 
@@ -719,3 +684,19 @@ it is there, through a zone filter on `BillableLeases` and
 is per landlord, not per property. Instead of a searchable list the select
 relies on typing to jump, which every browser supports. The demo seed still
 dates its history from the UTC date.
+
+### 4. Scheduled backups and a restore guide
+
+A `backup` service in `docker-compose.yml` runs `scripts/backup.sh` on the
+`postgres:17-alpine` image once the database is healthy: a `pg_dump -Fc`
+into `./backups` (`BACKUP_PATH`) at start and every `BACKUP_INTERVAL`
+(default a day), written under a temporary name and renamed when complete,
+keeping the newest `BACKUP_KEEP` (default 14). A failed dump is logged and
+retried at the next interval. `make backup` takes one now and `make restore
+FILE=...` stops the API, restores with `pg_restore --clean --if-exists` and
+starts it again. `docs/backups.md` covers restoring on the same or a new
+machine, checking a dump, copying backups elsewhere and upgrading. The CI
+docker job takes a backup of the demo data and restores it into a second
+database. Shipping dumps to object storage is left to the reader, with
+`rclone` and `aws s3 sync` as examples, as planned. The dumps are owned by
+root on the host.

@@ -37,6 +37,9 @@ type Config struct {
 	SMTPUsername string
 	SMTPPassword string
 	MailFrom     string
+	// SMTPAllowPlaintext sends without STARTTLS when the server offers
+	// none, for a mail catcher on the same machine.
+	SMTPAllowPlaintext bool
 	// AppURL is where people open the web app, for links in email, such as
 	// https://estates.example.com.
 	AppURL string
@@ -110,6 +113,13 @@ func Load() (Config, error) {
 			continue
 		}
 		cfg.TrustedProxies = append(cfg.TrustedProxies, prefix)
+	}
+	if v := os.Getenv("SMTP_ALLOW_PLAINTEXT"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("SMTP_ALLOW_PLAINTEXT: %w", err))
+		}
+		cfg.SMTPAllowPlaintext = b
 	}
 	if v := os.Getenv("SMTP_PORT"); v != "" {
 		n, err := strconv.Atoi(v)

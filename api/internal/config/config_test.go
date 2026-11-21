@@ -109,6 +109,9 @@ func TestLoadMail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if cfg.SMTPAllowPlaintext {
+		t.Error("plain text SMTP allowed by default")
+	}
 	if !cfg.MailEnabled() || cfg.SMTPPort != 2525 || cfg.AppURL != "https://estates.example.com" {
 		t.Errorf("unexpected %+v", cfg)
 	}

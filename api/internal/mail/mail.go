@@ -3,6 +3,7 @@ package mail
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -24,38 +25,99 @@ type Sender interface {
 	Send(ctx context.Context, m Message) error
 }
 
-// SMTP sends through one server. With a username it logs in, which
-// net/smtp only does over TLS (STARTTLS) or to localhost.
+// SMTP sends through one server. It upgrades the connection with STARTTLS
+// and refuses to send without it, unless AllowPlaintext is set (for a mail
+// catcher on the same machine). With a username it logs in.
 type SMTP struct {
-	Host     string
-	Port     int
-	Username string
-	Password string
-	From     string
+	Host           string
+	Port           int
+	Username       string
+	Password       string
+	From           string
+	AllowPlaintext bool
 }
 
+// dialTimeout bounds connecting when the context allows longer.
+const dialTimeout = 10 * time.Second
+
+// ErrNoTLS means the server does not offer STARTTLS and plain text is not
+// allowed.
+var ErrNoTLS = errors.New("the mail server does not offer STARTTLS; set SMTP_ALLOW_PLAINTEXT=true to send without it")
+
 // Send delivers m. The message is built here from fixed headers, so a
-// subject or address cannot add headers of its own.
+// subject or address cannot add headers of its own. The whole exchange
+// stops when ctx ends, so a server that never answers cannot hold a
+// connection open.
 func (s SMTP) Send(ctx context.Context, m Message) error {
 	raw, err := s.build(m, time.Now())
 	if err != nil {
 		return err
 	}
-	var auth smtp.Auth
-	if s.Username != "" {
-		auth = smtp.PlainAuth("", s.Username, s.Password, s.Host)
-	}
 	from, _ := mail.ParseAddress(s.From)
-	addr := net.JoinHostPort(s.Host, fmt.Sprint(s.Port))
+	to, _ := mail.ParseAddress(m.To)
 
-	done := make(chan error, 1)
-	go func() { done <- smtp.SendMail(addr, auth, from.Address, []string{m.To}, raw) }()
-	select {
-	case err := <-done:
+	d := net.Dialer{Timeout: dialTimeout}
+	conn, err := d.DialContext(ctx, "tcp", net.JoinHostPort(s.Host, fmt.Sprint(s.Port)))
+	if err != nil {
 		return err
-	case <-ctx.Done():
-		return ctx.Err()
 	}
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = conn.SetDeadline(deadline)
+	}
+	stop := context.AfterFunc(ctx, func() { _ = conn.SetDeadline(time.Now()) })
+	defer stop()
+
+	c, err := smtp.NewClient(conn, s.Host)
+	if err != nil {
+		conn.Close()
+		return err
+	}
+	defer c.Close()
+	if ok, _ := c.Extension("STARTTLS"); ok {
+		if err := c.StartTLS(&tls.Config{ServerName: s.Host, MinVersion: tls.VersionTLS12}); err != nil {
+			return err
+		}
+	} else if !s.AllowPlaintext {
+		return ErrNoTLS
+	}
+	if s.Username != "" {
+		if err := c.Auth(plainAuth{username: s.Username, password: s.Password}); err != nil {
+			return err
+		}
+	}
+	if err := c.Mail(from.Address); err != nil {
+		return err
+	}
+	if err := c.Rcpt(to.Address); err != nil {
+		return err
+	}
+	w, err := c.Data()
+	if err != nil {
+		return err
+	}
+	if _, err := w.Write(raw); err != nil {
+		return err
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	return c.Quit()
+}
+
+// plainAuth is PLAIN authentication. Unlike smtp.PlainAuth it does not
+// check for TLS itself: Send has already required TLS unless plain text was
+// allowed on purpose.
+type plainAuth struct{ username, password string }
+
+func (a plainAuth) Start(*smtp.ServerInfo) (string, []byte, error) {
+	return "PLAIN", []byte("\x00" + a.username + "\x00" + a.password), nil
+}
+
+func (a plainAuth) Next(_ []byte, more bool) ([]byte, error) {
+	if more {
+		return nil, errors.New("unexpected server challenge")
+	}
+	return nil, nil
 }
 
 func (s SMTP) build(m Message, now time.Time) ([]byte, error) {

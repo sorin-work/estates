@@ -79,7 +79,7 @@ func run() error {
 	if cfg.MailEnabled() {
 		opts.Mailer = mail.SMTP{
 			Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword,
-			From: cfg.MailFrom,
+			From: cfg.MailFrom, AllowPlaintext: cfg.SMTPAllowPlaintext,
 		}
 		opts.AppURL = cfg.AppURL
 	}

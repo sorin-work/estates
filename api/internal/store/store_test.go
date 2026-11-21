@@ -578,3 +578,42 @@ func TestTimeZoneCannotBeEmpty(t *testing.T) {
 		t.Error("an empty time zone was saved")
 	}
 }
+
+// A statement must see every payment, even on a lease with more than any
+// page size.
+func TestStatementPaymentsAreNotCapped(t *testing.T) {
+	f := setup(t)
+	lease, err := f.st.CreateLease(ctx, f.owner, store.LeaseInput{
+		UnitID: f.unit, TenantID: f.tenant, StartDate: d("2020-01-01"), EndDate: d("2026-12-31"),
+		RentCents: 100000, DueDay: 1, GraceDays: 5,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const n = 620
+	start := d("2020-01-01")
+	for i := range n {
+		if _, err := f.st.CreatePayment(ctx, f.owner, lease, store.PaymentInput{
+			AmountCents: 1000, PaidOn: start.AddDays(i * 3), Method: "cash",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := f.st.StatementPayments(ctx, f.owner, lease)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != n {
+		t.Fatalf("%d payments, want %d", len(got), n)
+	}
+	if !got[0].Date.Equal(start) || !got[0].Payment || got[0].Kind != "cash" {
+		t.Errorf("oldest first: %+v", got[0])
+	}
+	other, err := f.st.CreateUser(ctx, "other@example.com", "Other", "hash")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := f.st.StatementPayments(ctx, other.ID, lease); len(got) != 0 {
+		t.Errorf("another owner sees %d payments", len(got))
+	}
+}

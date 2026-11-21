@@ -4,8 +4,10 @@
 
 - Password reset by email: "Forgot your password?" sends a one-use link
   valid for 30 minutes, and setting the new password signs out every
-  device. Needs `SMTP_HOST`, `MAIL_FROM` and `APP_URL`; new endpoints
-  `POST /api/auth/forgot` and `POST /api/auth/reset`.
+  device. Needs `SMTP_HOST`, `MAIL_FROM` and `APP_URL`; mail goes over
+  STARTTLS only unless `SMTP_ALLOW_PLAINTEXT=true`. New endpoints
+  `POST /api/auth/forgot` and `POST /api/auth/reset`. Changing the password
+  also ends any open reset link.
 
 - Tenant statements: a printable page per lease with the opening balance,
   every charge and payment in a period with the running balance, and the

@@ -685,16 +685,20 @@ version yet.
 Built before item 20, with only the part of it a reset needs: SMTP settings
 (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM`,
 `APP_URL`) and a small `internal/mail` sender on `net/smtp` that builds the
-message from fixed headers. `POST /api/auth/forgot` always answers `202`
-with the same text; for an existing account it creates a 32-byte random
-token, stores its SHA-256 in `password_resets` with a 30 minute expiry, and
-emails `APP_URL/reset-password#token=...` after the response, so neither the
-answer nor its timing shows whether the account exists. The token sits after
-`#` so it never reaches a server log. `POST /api/auth/reset` uses the token
-in one transaction: it marks it and every other open link of the account
-used, sets the password and bumps `token_version`, which ends every session,
-and signs this one in. Limits follow item 1: per address, per email and
-address, at most 3 reset emails an hour per account (more are dropped
-quietly), and reset attempts per address. Without a mail server the link is
-hidden and the endpoints answer `404`. There is no outbox: a failed send is
-logged, and the user asks again.
+message from fixed headers, requires STARTTLS unless
+`SMTP_ALLOW_PLAINTEXT=true`, and dials and talks under the request's
+deadline. `POST /api/auth/forgot` always answers `202` with the same text;
+for an existing account it creates a 32-byte random token, stores its
+SHA-256 in `password_resets` with a 30 minute expiry, and emails
+`APP_URL/reset-password#token=...` after the response, so neither the answer
+nor its timing shows whether the account exists. The token sits after `#` so
+it never reaches a server log. `POST /api/auth/reset` uses the token in one
+transaction: it marks it and every other open link of the account used, sets
+the password and bumps `token_version`, which ends every session, and signs
+this one in. Limits follow item 1: requests per address, 3 an hour per email
+and address (so someone else asking never uses up the owner's budget), at
+most 20 reset emails a day per account against flooding (more are dropped
+quietly), and reset attempts per address. Changing the password in Settings
+also spends every open link. Without a mail server the link is hidden and
+the endpoints answer `404`. There is no outbox: a failed send is logged, and
+the user asks again.

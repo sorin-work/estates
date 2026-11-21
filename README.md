@@ -100,25 +100,26 @@ upgrade safely is in [docs/backups.md](docs/backups.md).
 
 The API reads its settings from the environment:
 
-| Variable             | Default | Notes                                                      |
-| -------------------- | ------- | ---------------------------------------------------------- |
-| `DATABASE_URL`       |         | Required. A Postgres connection string                     |
-| `JWT_SECRET`         |         | Required, at least 32 characters. Signs login tokens       |
-| `ADDR`               | `:4200` | Address to listen on                                       |
-| `TOKEN_TTL`          | `168h`  | How long a login lasts                                     |
-| `BILLING_INTERVAL`   | `1h`    | How often rent, late fees and recurring expenses are added |
-| `LOG_LEVEL`          | `info`  | `debug`, `info`, `warn` or `error`                         |
-| `LOG_FORMAT`         | `json`  | `json` or `text`                                           |
-| `SEED_DEMO`          | `false` | Create the demo account on start (Docker Compose sets it)  |
-| `CORS_ORIGINS`       |         | Comma separated origins allowed to call the API directly   |
-| `ALLOW_REGISTRATION` | `true`  | `false` lets only the first account sign up                |
-| `TRUSTED_PROXIES`    |         | Comma separated proxy addresses or CIDRs (see below)       |
-| `SMTP_HOST`          |         | Mail server; without it nothing is emailed                 |
-| `SMTP_PORT`          | `587`   | STARTTLS is used when the server offers it                 |
-| `SMTP_USERNAME`      |         | With `SMTP_PASSWORD`, to log in to the mail server         |
-| `SMTP_PASSWORD`      |         |                                                            |
-| `MAIL_FROM`          |         | Required with `SMTP_HOST`, e.g. `Estates <me@example.com>` |
-| `APP_URL`            |         | Required with `SMTP_HOST`: the web app's address for links |
+| Variable               | Default | Notes                                                      |
+| ---------------------- | ------- | ---------------------------------------------------------- |
+| `DATABASE_URL`         |         | Required. A Postgres connection string                     |
+| `JWT_SECRET`           |         | Required, at least 32 characters. Signs login tokens       |
+| `ADDR`                 | `:4200` | Address to listen on                                       |
+| `TOKEN_TTL`            | `168h`  | How long a login lasts                                     |
+| `BILLING_INTERVAL`     | `1h`    | How often rent, late fees and recurring expenses are added |
+| `LOG_LEVEL`            | `info`  | `debug`, `info`, `warn` or `error`                         |
+| `LOG_FORMAT`           | `json`  | `json` or `text`                                           |
+| `SEED_DEMO`            | `false` | Create the demo account on start (Docker Compose sets it)  |
+| `CORS_ORIGINS`         |         | Comma separated origins allowed to call the API directly   |
+| `ALLOW_REGISTRATION`   | `true`  | `false` lets only the first account sign up                |
+| `TRUSTED_PROXIES`      |         | Comma separated proxy addresses or CIDRs (see below)       |
+| `SMTP_HOST`            |         | Mail server; without it nothing is emailed                 |
+| `SMTP_PORT`            | `587`   | Mail is only sent over STARTTLS                            |
+| `SMTP_ALLOW_PLAINTEXT` | `false` | `true` sends without TLS, for a mail catcher on this host  |
+| `SMTP_USERNAME`        |         | With `SMTP_PASSWORD`, to log in to the mail server         |
+| `SMTP_PASSWORD`        |         |                                                            |
+| `MAIL_FROM`            |         | Required with `SMTP_HOST`, e.g. `Estates <me@example.com>` |
+| `APP_URL`              |         | Required with `SMTP_HOST`: the web app's address for links |
 
 ### Signing in from the internet
 
@@ -173,12 +174,15 @@ HTTP it would be ignored at best.
 With a mail server set up (`SMTP_HOST`, `MAIL_FROM` and `APP_URL`), the
 sign-in page offers "Forgot your password?". It emails a link that works
 once, for 30 minutes; only a hash of it is stored. Setting the new password
-signs out every device and any other open link stops working. The page
-answers the same whether or not the email has an account, and the email is
-sent after it has answered, so the timing does not tell either. Requests
-are limited per address and per email and address, and an account gets at
-most 3 reset emails an hour whoever asks. Without a mail server the link is
-not shown and the endpoints answer `404`.
+signs out every device and any other open link stops working; so does
+changing the password in Settings. The page answers the same whether or not
+the email has an account, and the email is sent after it has answered, so
+the timing does not tell either. Each address can ask 3 times an hour for
+one email, so someone else asking for your address does not use up your
+own requests, and an account gets at most 20 reset emails a day in all.
+Mail goes over STARTTLS only, unless `SMTP_ALLOW_PLAINTEXT=true`, and a
+mail server that stops answering is given up on after a minute. Without a
+mail server the link is not shown and the endpoints answer `404`.
 
 ## Running locally
 

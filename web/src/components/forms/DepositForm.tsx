@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { Deposit, DepositInput, DepositKind } from '../../api/types';
-import { today } from '../../lib/dates';
+import { accountZoneHint, today } from '../../lib/dates';
 import { depositKinds, options } from '../../lib/labels';
 import { centsToInput, formatMoney, parseMoney } from '../../lib/money';
 import Field from '../Field';
@@ -62,7 +62,7 @@ export default function DepositForm({
             </select>
           )}
         </Field>
-        <Field label="Date" error={errors.occurred_on}>
+        <Field label="Date" error={errors.occurred_on} hint={accountZoneHint()}>
           {(id) => (
             <input
               id={id}

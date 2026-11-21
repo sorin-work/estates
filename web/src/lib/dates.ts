@@ -1,6 +1,48 @@
-/** Today's date as YYYY-MM-DD in the browser's timezone. */
+import { browserTimeZone, timeZoneLabel } from './timezones';
+
+let accountZone = '';
+
+/**
+ * Sets the time zone "today" is worked out in. The API decides what today
+ * is from the account's saved zone, so the forms must use the same one, not
+ * the browser's.
+ */
+export function setAccountTimeZone(zone: string): void {
+  accountZone = zone;
+}
+
+/** Today's date as YYYY-MM-DD in the account's time zone, or the browser's. */
 export function today(): string {
+  if (accountZone) {
+    try {
+      return isoDateIn(new Date(), accountZone);
+    } catch {
+      // An unknown zone: fall back to the browser's.
+    }
+  }
   return toISODate(new Date());
+}
+
+/** The date of d in the given IANA time zone, as YYYY-MM-DD. */
+export function isoDateIn(d: Date, zone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: zone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
+/**
+ * A hint for date fields when this device is in another time zone than the
+ * account, where "today" can be a different day.
+ */
+export function accountZoneHint(): string | undefined {
+  const device = browserTimeZone();
+  if (!accountZone || !device || device === accountZone) return undefined;
+  return `Today is ${formatDate(today())} in ${timeZoneLabel(accountZone)}, your account's time zone.`;
 }
 
 export function toISODate(d: Date): string {

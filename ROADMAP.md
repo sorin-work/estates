@@ -59,7 +59,7 @@ heading at the top) are updated in the same pull request.
 | 2   | Security headers                             | Shipped | security      | S    | -          |
 | 3   | The landlord's time zone decides "today"     | Shipped | rent          | M    | -          |
 | 4   | Scheduled backups and a restore guide        | Shipped | ops           | S    | -          |
-| 5   | Tenant statements                            | Next    | rent          | S    | -          |
+| 5   | Tenant statements                            | Shipped | rent          | S    | -          |
 | 6   | Receipts and invoices on expenses            | Later   | expenses      | S    | -          |
 | 7   | Recurring extra charges on a lease           | Later   | rent          | M    | -          |
 | 8   | Refunds and tenant credit                    | Later   | rent          | M    | -          |
@@ -96,38 +96,8 @@ heading at the top) are updated in the same pull request.
 
 ## Next
 
-### 5. Tenant statements
-
-A tenant who asks "what do I owe and how did you get there" gets either a
-screenshot of the lease page or a pile of receipts. The ledger on
-`GET /api/leases/{id}/ledger` has everything, but only from the start of the
-lease and with no running balance, and there is no printable version. Housing
-benefit offices and tenants moving out often ask for exactly this document.
-
-- A pure `domain.BuildStatement(charges, payments, from, to)` that returns
-  the opening balance (charges due before `from` less payments before
-  `from`), every charge and payment in the period in date order with the
-  running balance after each line, and the closing balance. Charges that
-  fall due after `to` are left out, payments made in advance are not.
-- `GET /api/leases/{id}/statement?from=&to=` (default: the lease start to
-  today), using the same `LedgerEntries` query as the ledger, plus the
-  landlord, tenant and property details the receipt already loads in
-  `httpapi/receipts.go`.
-- A new `pages/StatementPage.tsx` at `/leases/:id/statement`, outside the
-  layout like `ReceiptPage`, with a period picker, Print, and the same print
-  styles. A "Statement" button on the lease page.
-- Tricky: deposit charges. Old leases may still have `deposit` charges from
-  before deposits were tracked apart (migration 00011). The statement should
-  treat charges the way the ledger does, so both show the same balance.
-- Tricky: payments on the same day as a charge. Show the charge first, so
-  the running balance does not dip below zero for a moment.
-- Tricky: a renewed lease is a separate lease. The statement covers one
-  lease; the renewal links on the lease page lead to the next statement.
-- Undecided: a CSV version. Cheap to add next to the print view; I would
-  wait until someone asks.
-- Tests: domain tests for opening balance, a period in the middle of the
-  lease, prepayment and an empty period; a router test including another
-  landlord's lease; a Vitest test for the page with the running balance.
+The first five items have shipped (see the end). The next ones come from
+Later, in order.
 
 ## Later
 
@@ -700,3 +670,17 @@ docker job takes a backup of the demo data and restores it into a second
 database. Shipping dumps to object storage is left to the reader, with
 `rclone` and `aws s3 sync` as examples, as planned. The dumps are owned by
 root on the host.
+
+### 5. Tenant statements
+
+`domain.BuildStatement` works out the opening balance (everything due or
+paid before the period), the charges and payments in the period in date
+order with charges first on the same day, the running balance and the
+closing balance; charges due after the period are left out and payments made
+in advance are not. `GET /api/leases/{id}/statement?from=&to=` (default: the
+lease start to today) feeds it every charge, legacy deposit charges
+included, exactly as the ledger does, and every payment up to the ledger's 500. The landlord, tenant and property block is shared with the receipt
+(`loadLetterhead`). The web page `/leases/:id/statement` sits outside the
+layout like the receipt, keeps the period in the address and prints; the
+lease page has a "Statement" button. As planned it covers one lease,
+renewals have their own, and there is no CSV version yet.

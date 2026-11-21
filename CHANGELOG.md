@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Tenant statements: a printable page per lease with the opening balance,
+  every charge and payment in a period with the running balance, and the
+  closing balance. `GET /api/leases/{id}/statement?from=&to=`.
+
 - Scheduled backups: a `backup` service in Docker Compose dumps the
   database into `./backups` every `BACKUP_INTERVAL` (a day) and keeps the
   newest `BACKUP_KEEP` (14). `make backup` and `make restore FILE=...`.

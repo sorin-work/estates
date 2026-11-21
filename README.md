@@ -23,6 +23,8 @@ attention and a profit and loss report per property.
 - **Rent roll**: every active lease with its balance, overdue amount and how
   long it has been late, sortable by any column, plus all payments received
   in a month. Payments can be corrected and printed as numbered receipts.
+  A printable statement shows a lease's charges and payments over any
+  period with the running balance.
 - **Deposits**: kept apart from rent. Record what was received, returned to
   the tenant or withheld for damage, and see what is still held.
 - **Maintenance**: requests per property or unit with a priority and a status

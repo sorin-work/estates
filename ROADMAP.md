@@ -53,46 +53,46 @@ heading at the top) are updated in the same pull request.
 
 ## Overview
 
-| #   | Item                                         | Group | Area          | Size | Depends on |
-| --- | -------------------------------------------- | ----- | ------------- | ---- | ---------- |
-| 1   | Slow down password guessing, close sign-up   | Next  | security      | S    | -          |
-| 2   | Security headers                             | Next  | security      | S    | -          |
-| 3   | The landlord's time zone decides "today"     | Next  | rent          | M    | -          |
-| 4   | Scheduled backups and a restore guide        | Next  | ops           | S    | -          |
-| 5   | Tenant statements                            | Next  | rent          | S    | -          |
-| 6   | Receipts and invoices on expenses            | Later | expenses      | S    | -          |
-| 7   | Recurring extra charges on a lease           | Later | rent          | M    | -          |
-| 8   | Refunds and tenant credit                    | Later | rent          | M    | -          |
-| 9   | Mortgage interest and principal              | Later | reports       | M    | -          |
-| 10  | Year-end tax summary                         | Later | reports       | S    | 9          |
-| 11  | What each vendor was paid in a year          | Later | vendors       | S    | -          |
-| 12  | Vacancy and lost rent                        | Later | reports       | S    | -          |
-| 13  | Calendar feed                                | Later | dashboard     | S    | -          |
-| 14  | Import payments from a bank export           | Later | rent          | M    | -          |
-| 15  | Import a portfolio from spreadsheets         | Later | import        | M    | -          |
-| 16  | Export everything, delete the account        | Later | account       | M    | -          |
-| 17  | Signed-in devices and signing them out       | Later | security      | M    | -          |
-| 18  | Cookie sessions instead of a stored token    | Later | security      | M    | 17         |
-| 19  | Two-step sign-in with an authenticator app   | Later | security      | M    | -          |
-| 20  | Email delivery and a weekly digest           | Later | notifications | M    | -          |
-| 21  | Password reset by email                      | Later | account       | S    | 20         |
-| 22  | Send receipts and statements to tenants      | Later | notifications | M    | 5, 20      |
-| 23  | Several tenants on one lease                 | Later | leases        | L    | -          |
-| 24  | Updates and notes on maintenance requests    | Later | maintenance   | M    | -          |
-| 25  | Move-in and move-out inspections             | Later | leases        | L    | -          |
-| 26  | Printable notices                            | Later | leases        | S    | -          |
-| 27  | Pages and server filters for long lists      | Later | performance   | M    | -          |
-| 28  | Billing status in Settings                   | Later | ops           | S    | -          |
-| 29  | Readiness check and request metrics          | Later | ops           | S    | -          |
-| 30  | Migration and upgrade checks in CI           | Later | tests         | S    | -          |
-| 31  | Dashboard and report numbers pinned by tests | Later | tests         | S    | -          |
-| 32  | Accessibility checks in the test suite       | Later | ui            | M    | -          |
-| 33  | Browser tests for the main flows             | Maybe | tests         | M    | -          |
-| 34  | Shared access for a partner or a manager     | Maybe | account       | L    | 17         |
-| 35  | Tenant portal                                | Maybe | tenants       | L    | 20, 34     |
-| 36  | Online rent payments                         | Maybe | rent          | L    | 35         |
-| 37  | Balances worked out in SQL                   | Maybe | performance   | L    | 27         |
-| 38  | Interest on deposits                         | Maybe | deposits      | S    | -          |
+| #   | Item                                         | Group   | Area          | Size | Depends on |
+| --- | -------------------------------------------- | ------- | ------------- | ---- | ---------- |
+| 1   | Slow down password guessing, close sign-up   | Shipped | security      | S    | -          |
+| 2   | Security headers                             | Next    | security      | S    | -          |
+| 3   | The landlord's time zone decides "today"     | Next    | rent          | M    | -          |
+| 4   | Scheduled backups and a restore guide        | Next    | ops           | S    | -          |
+| 5   | Tenant statements                            | Next    | rent          | S    | -          |
+| 6   | Receipts and invoices on expenses            | Later   | expenses      | S    | -          |
+| 7   | Recurring extra charges on a lease           | Later   | rent          | M    | -          |
+| 8   | Refunds and tenant credit                    | Later   | rent          | M    | -          |
+| 9   | Mortgage interest and principal              | Later   | reports       | M    | -          |
+| 10  | Year-end tax summary                         | Later   | reports       | S    | 9          |
+| 11  | What each vendor was paid in a year          | Later   | vendors       | S    | -          |
+| 12  | Vacancy and lost rent                        | Later   | reports       | S    | -          |
+| 13  | Calendar feed                                | Later   | dashboard     | S    | -          |
+| 14  | Import payments from a bank export           | Later   | rent          | M    | -          |
+| 15  | Import a portfolio from spreadsheets         | Later   | import        | M    | -          |
+| 16  | Export everything, delete the account        | Later   | account       | M    | -          |
+| 17  | Signed-in devices and signing them out       | Later   | security      | M    | -          |
+| 18  | Cookie sessions instead of a stored token    | Later   | security      | M    | 17         |
+| 19  | Two-step sign-in with an authenticator app   | Later   | security      | M    | -          |
+| 20  | Email delivery and a weekly digest           | Later   | notifications | M    | -          |
+| 21  | Password reset by email                      | Later   | account       | S    | 20         |
+| 22  | Send receipts and statements to tenants      | Later   | notifications | M    | 5, 20      |
+| 23  | Several tenants on one lease                 | Later   | leases        | L    | -          |
+| 24  | Updates and notes on maintenance requests    | Later   | maintenance   | M    | -          |
+| 25  | Move-in and move-out inspections             | Later   | leases        | L    | -          |
+| 26  | Printable notices                            | Later   | leases        | S    | -          |
+| 27  | Pages and server filters for long lists      | Later   | performance   | M    | -          |
+| 28  | Billing status in Settings                   | Later   | ops           | S    | -          |
+| 29  | Readiness check and request metrics          | Later   | ops           | S    | -          |
+| 30  | Migration and upgrade checks in CI           | Later   | tests         | S    | -          |
+| 31  | Dashboard and report numbers pinned by tests | Later   | tests         | S    | -          |
+| 32  | Accessibility checks in the test suite       | Later   | ui            | M    | -          |
+| 33  | Browser tests for the main flows             | Maybe   | tests         | M    | -          |
+| 34  | Shared access for a partner or a manager     | Maybe   | account       | L    | 17         |
+| 35  | Tenant portal                                | Maybe   | tenants       | L    | 20, 34     |
+| 36  | Online rent payments                         | Maybe   | rent          | L    | 35         |
+| 37  | Balances worked out in SQL                   | Maybe   | performance   | L    | 27         |
+| 38  | Interest on deposits                         | Maybe   | deposits      | S    | -          |
 
 ## Next
 

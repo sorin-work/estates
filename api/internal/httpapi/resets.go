@@ -79,7 +79,8 @@ func (s *Server) forgotPassword(w http.ResponseWriter, r *http.Request) error {
 	case err != nil:
 		return err
 	default:
-		// However many addresses ask, an inbox gets a few links an hour.
+		// However many addresses ask, an inbox gets at most
+		// resetMailsPerEmail links a day.
 		if ok, _ := s.limits.resetMailsByEmail.take(limitKey(email)); ok {
 			s.background(func(ctx context.Context) { s.sendReset(ctx, u) })
 		} else {

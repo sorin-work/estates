@@ -153,12 +153,13 @@ const (
 	signupsPerAddress = 10
 
 	// Password reset: requests an hour per address and per email and
-	// address, reset emails an hour per account whoever asks (more are
-	// dropped quietly, so nobody can flood an inbox), and attempts to use
-	// a link per address in failureWindow.
+	// address (the pair is the real budget, so someone asking from one
+	// address never uses up the owner's), reset emails a day per account
+	// whoever asks (more are dropped quietly, only so nobody can flood an
+	// inbox), and attempts to use a link per address in failureWindow.
 	forgotsPerAddress  = 10
 	forgotsPerPair     = 3
-	resetMailsPerEmail = 3
+	resetMailsPerEmail = 20
 	resetsPerAddress   = 10
 )
 
@@ -183,7 +184,7 @@ func newAuthLimits() authLimits {
 
 		forgotByAddress:   newLimiter(forgotsPerAddress, time.Hour),
 		forgotByPair:      newLimiter(forgotsPerPair, time.Hour),
-		resetMailsByEmail: newLimiter(resetMailsPerEmail, time.Hour),
+		resetMailsByEmail: newLimiter(resetMailsPerEmail, 24*time.Hour),
 		resetByAddress:    newLimiter(resetsPerAddress, failureWindow),
 	}
 }

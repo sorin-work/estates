@@ -163,28 +163,50 @@ func TestPasswordResetRefusesBadInput(t *testing.T) {
 
 func TestPasswordResetLimits(t *testing.T) {
 	f := newResetServer(t)
-	anon := &client{t: t, handler: f.c.handler}
-	// One address and email: a few requests an hour.
+	const attacker, owner = "203.0.113.66:1", "198.51.100.7:1"
+	// One address and email: a few requests an hour, then 429.
 	for range forgotsPerPair {
-		anon.mustStatus(http.StatusAccepted, "POST", "/api/auth/forgot", map[string]string{"email": "owner@example.com"})
+		res := post(t, f.c.handler, "/api/auth/forgot", attacker, "", map[string]string{"email": "owner@example.com"})
+		if res.Status != http.StatusAccepted {
+			t.Fatalf("status %d", res.Status)
+		}
 	}
-	res := anon.mustStatus(http.StatusTooManyRequests, "POST", "/api/auth/forgot", map[string]string{"email": "owner@example.com"})
-	if res.Header.Get("Retry-After") == "" {
-		t.Error("no Retry-After")
+	res := post(t, f.c.handler, "/api/auth/forgot", attacker, "", map[string]string{"email": "owner@example.com"})
+	if res.Status != http.StatusTooManyRequests || res.Header.Get("Retry-After") == "" {
+		t.Fatalf("over the pair limit: %d %v", res.Status, res.Header)
 	}
 	f.srv.Wait()
-	if n := len(f.mailer.received()); n != resetMailsPerEmail {
-		t.Fatalf("%d emails, want %d", n, resetMailsPerEmail)
+	if n := len(f.mailer.received()); n != forgotsPerPair {
+		t.Fatalf("%d emails, want %d", n, forgotsPerPair)
 	}
-	// From another address the request is answered as usual, but the inbox
-	// gets nothing more this hour.
-	res = post(t, f.c.handler, "/api/auth/forgot", "198.51.100.7:1", "", map[string]string{"email": "owner@example.com"})
+
+	// Someone else spending their budget does not stop the owner's request.
+	res = post(t, f.c.handler, "/api/auth/forgot", owner, "", map[string]string{"email": "owner@example.com"})
 	if res.Status != http.StatusAccepted {
-		t.Fatalf("status %d", res.Status)
+		t.Fatalf("owner: status %d", res.Status)
 	}
 	f.srv.Wait()
-	if n := len(f.mailer.received()); n != 0 {
-		t.Errorf("%d more emails sent", n)
+	if n := len(f.mailer.received()); n != 1 {
+		t.Fatalf("owner got %d emails, want 1", n)
+	}
+}
+
+func TestPasswordResetMailCapPerAccount(t *testing.T) {
+	f := newResetServer(t)
+	// Many addresses together get at most resetMailsPerEmail links a day
+	// sent to one inbox. Past that the answer is the same, without email.
+	sent := 0
+	for i := range resetMailsPerEmail + 2 {
+		addr := "203.0.113." + itoa(int64(i+1)) + ":1"
+		res := post(t, f.c.handler, "/api/auth/forgot", addr, "", map[string]string{"email": "owner@example.com"})
+		if res.Status != http.StatusAccepted {
+			t.Fatalf("request %d: status %d", i+1, res.Status)
+		}
+		f.srv.Wait()
+		sent += len(f.mailer.received())
+	}
+	if sent != resetMailsPerEmail {
+		t.Errorf("%d emails, want %d", sent, resetMailsPerEmail)
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/sorin-work/estates/api/internal/domain"
 	"github.com/sorin-work/estates/api/internal/store"
@@ -615,5 +616,26 @@ func TestStatementPaymentsAreNotCapped(t *testing.T) {
 	}
 	if got, _ := f.st.StatementPayments(ctx, other.ID, lease); len(got) != 0 {
 		t.Errorf("another owner sees %d payments", len(got))
+	}
+}
+
+func TestPasswordChangeSpendsResetLinks(t *testing.T) {
+	st := store.New(testdb.New(t))
+	u, err := st.CreateUser(ctx, "owner@example.com", "Owner", "hash")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hash := []byte("0123456789abcdef0123456789abcdef")
+	if err := st.CreatePasswordReset(ctx, u.ID, hash, time.Now().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.SetPassword(ctx, u.ID, "new-hash"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.ResetPassword(ctx, hash, "other-hash", time.Now()); !errors.Is(err, store.ErrResetInvalid) {
+		t.Errorf("link still worked after a password change: %v", err)
+	}
+	if _, err := st.SetPassword(ctx, "00000000-0000-0000-0000-000000000000", "x"); !errors.Is(err, store.ErrNotFound) {
+		t.Errorf("unknown user: %v", err)
 	}
 }

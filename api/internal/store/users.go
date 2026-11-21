@@ -35,6 +35,13 @@ func (s *Store) CreateUser(ctx context.Context, email, name, passwordHash string
 	return u, err
 }
 
+// HasUsers reports whether any account exists.
+func (s *Store) HasUsers(ctx context.Context) (bool, error) {
+	var ok bool
+	err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM users)`).Scan(&ok)
+	return ok, err
+}
+
 // UserByEmail looks a user up by email, ignoring case.
 func (s *Store) UserByEmail(ctx context.Context, email string) (User, error) {
 	rows, err := s.pool.Query(ctx, `SELECT `+userColumns+` FROM users WHERE lower(email) = lower($1)`, email)

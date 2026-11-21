@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"net/netip"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -52,6 +53,11 @@ type Server struct {
 	tokens      *auth.Tokens
 	log         *slog.Logger
 	corsOrigins []string
+	// closeRegistration refuses new accounts once one exists.
+	closeRegistration bool
+	// trustedProxies may set X-Forwarded-For.
+	trustedProxies []netip.Prefix
+	limits         authLimits
 	// today returns the current date; tests replace it.
 	today func() domain.Date
 }
@@ -62,7 +68,12 @@ type Options struct {
 	Tokens      *auth.Tokens
 	Logger      *slog.Logger
 	CORSOrigins []string
-	Today       func() domain.Date
+	// CloseRegistration refuses sign-ups once the first account exists.
+	CloseRegistration bool
+	// TrustedProxies are the addresses whose X-Forwarded-For header is
+	// believed when working out who is signing in.
+	TrustedProxies []netip.Prefix
+	Today          func() domain.Date
 }
 
 func New(o Options) *Server {
@@ -73,6 +84,10 @@ func New(o Options) *Server {
 		log:         o.Logger,
 		corsOrigins: o.CORSOrigins,
 		today:       o.Today,
+
+		closeRegistration: o.CloseRegistration,
+		trustedProxies:    o.TrustedProxies,
+		limits:            newAuthLimits(),
 	}
 	if s.log == nil {
 		s.log = slog.Default()
@@ -105,6 +120,7 @@ func (s *Server) Handler() http.Handler {
 	r.Route("/api", func(r chi.Router) {
 		r.Post("/auth/register", s.handle(s.register))
 		r.Post("/auth/login", s.handle(s.login))
+		r.Get("/auth/config", s.handle(s.authConfig))
 
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireAuth)

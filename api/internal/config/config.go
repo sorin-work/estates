@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -22,6 +23,12 @@ type Config struct {
 	// Not needed when the web app proxies /api.
 	CORSOrigins []string
 	SeedDemo    bool
+	// AllowRegistration lets anyone create an account. When false only the
+	// first account can be created.
+	AllowRegistration bool
+	// TrustedProxies are the proxies whose X-Forwarded-For header is
+	// believed, as CIDR prefixes.
+	TrustedProxies []netip.Prefix
 	// BillingInterval is how often rent charges and late fees are generated.
 	BillingInterval time.Duration
 }
@@ -36,6 +43,8 @@ func Load() (Config, error) {
 		CORSOrigins:     splitList(os.Getenv("CORS_ORIGINS")),
 		TokenTTL:        7 * 24 * time.Hour,
 		BillingInterval: time.Hour,
+
+		AllowRegistration: true,
 	}
 
 	var errs []error
@@ -69,7 +78,35 @@ func Load() (Config, error) {
 		}
 		cfg.SeedDemo = b
 	}
+	if v := os.Getenv("ALLOW_REGISTRATION"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("ALLOW_REGISTRATION: %w", err))
+		}
+		cfg.AllowRegistration = b
+	}
+	for _, p := range splitList(os.Getenv("TRUSTED_PROXIES")) {
+		prefix, err := parsePrefix(p)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("TRUSTED_PROXIES: %w", err))
+			continue
+		}
+		cfg.TrustedProxies = append(cfg.TrustedProxies, prefix)
+	}
 	return cfg, errors.Join(errs...)
+}
+
+// parsePrefix reads a CIDR prefix, or a single address as a prefix of one.
+func parsePrefix(s string) (netip.Prefix, error) {
+	if strings.Contains(s, "/") {
+		p, err := netip.ParsePrefix(s)
+		return p.Masked(), err
+	}
+	a, err := netip.ParseAddr(s)
+	if err != nil {
+		return netip.Prefix{}, err
+	}
+	return netip.PrefixFrom(a, a.BitLen()), nil
 }
 
 func getenv(key, fallback string) string {

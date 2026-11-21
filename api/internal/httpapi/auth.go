@@ -14,6 +14,7 @@ import (
 
 type userStore interface {
 	CreateUser(ctx context.Context, email, name, passwordHash string) (store.User, error)
+	HasUsers(ctx context.Context) (bool, error)
 	UserByEmail(ctx context.Context, email string) (store.User, error)
 	UserByID(ctx context.Context, id string) (store.User, error)
 	UpdateUser(ctx context.Context, id string, in store.UserSettings) error
@@ -35,7 +36,40 @@ func (s *Server) issue(w http.ResponseWriter, status int, u store.User) error {
 	return nil
 }
 
+// registrationOpen reports whether a new account may be created. With
+// registration closed the first account can still be made, so a fresh
+// install is not locked out.
+func (s *Server) registrationOpen(ctx context.Context) (bool, error) {
+	if !s.closeRegistration {
+		return true, nil
+	}
+	exists, err := s.store.HasUsers(ctx)
+	return !exists, err
+}
+
+// authConfig tells the sign-in pages what they may offer.
+func (s *Server) authConfig(w http.ResponseWriter, r *http.Request) error {
+	open, err := s.registrationOpen(r.Context())
+	if err != nil {
+		return err
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"registration_open": open})
+	return nil
+}
+
 func (s *Server) register(w http.ResponseWriter, r *http.Request) error {
+	if ok, wait := s.limits.signupByAddress.take(clientAddr(r, s.trustedProxies)); !ok {
+		return errTooManyAttempts(w, wait)
+	}
+	open, err := s.registrationOpen(r.Context())
+	if err != nil {
+		return err
+	}
+	if !open {
+		return &apiError{Status: http.StatusForbidden, Code: "registration_closed",
+			Message: "this server does not take new accounts"}
+	}
+
 	var in struct {
 		Email    string `json:"email"`
 		Name     string `json:"name"`
@@ -75,7 +109,15 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) error {
 // missing account takes as long as one with a wrong password.
 var dummyHash, _ = auth.HashPassword("not-a-real-password")
 
+// login is limited twice: by address, counting every attempt, and by email,
+// counting wrong passwords until one is right. The email limit applies the
+// same way to addresses with no account, so it does not reveal which exist.
 func (s *Server) login(w http.ResponseWriter, r *http.Request) error {
+	addr := clientAddr(r, s.trustedProxies)
+	if ok, wait := s.limits.loginByAddress.take(addr); !ok {
+		s.log.Warn("login limited", "by", "address", "addr", addr)
+		return errTooManyAttempts(w, wait)
+	}
 	var in struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
@@ -83,9 +125,14 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) error {
 	if err := decode(w, r, &in); err != nil {
 		return err
 	}
+	email := strings.ToLower(strings.TrimSpace(in.Email))
+	if ok, wait := s.limits.loginByEmail.take(email); !ok {
+		s.log.Warn("login limited", "by", "email", "addr", addr)
+		return errTooManyAttempts(w, wait)
+	}
 	invalid := &apiError{Status: http.StatusUnauthorized, Code: "invalid_credentials", Message: "email or password is incorrect"}
 
-	u, err := s.store.UserByEmail(r.Context(), strings.TrimSpace(in.Email))
+	u, err := s.store.UserByEmail(r.Context(), email)
 	if errors.Is(err, store.ErrNotFound) {
 		auth.CheckPassword(dummyHash, in.Password)
 		return invalid
@@ -96,6 +143,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) error {
 	if !auth.CheckPassword(u.PasswordHash, in.Password) {
 		return invalid
 	}
+	s.limits.loginByEmail.reset(email)
 	return s.issue(w, http.StatusOK, u)
 }
 

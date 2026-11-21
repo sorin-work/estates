@@ -70,6 +70,9 @@ func run() error {
 		Tokens:      tokens,
 		Logger:      log,
 		CORSOrigins: cfg.CORSOrigins,
+
+		CloseRegistration: !cfg.AllowRegistration,
+		TrustedProxies:    cfg.TrustedProxies,
 	})
 
 	go bill.Run(ctx, cfg.BillingInterval)

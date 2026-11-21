@@ -16,14 +16,15 @@ import (
 
 // Store is the subset of the data layer billing needs.
 type Store interface {
-	BillableLeases(ctx context.Context, asOf domain.Date) ([]store.Lease, error)
+	BillableLeases(ctx context.Context, asOf domain.Date, timeZone string) ([]store.Lease, error)
+	TimeZones(ctx context.Context) ([]string, error)
 	ListLeases(ctx context.Context, ownerID string, f store.LeaseFilter) ([]store.Lease, error)
 	LeaseOwner(ctx context.Context, leaseID string) (string, error)
 	InsertRent(ctx context.Context, leaseID string, rent []domain.ScheduledRent) (int, error)
 	InsertLateFee(ctx context.Context, leaseID, rentChargeID string, amount int64, due domain.Date) (bool, error)
 	LateFeeParents(ctx context.Context, leaseID string) (map[string]bool, error)
 	LedgerEntries(ctx context.Context, ownerID, leaseID string) (map[string]*store.LedgerEntries, error)
-	DueRecurringExpenses(ctx context.Context, asOf domain.Date) ([]store.RecurringExpense, error)
+	DueRecurringExpenses(ctx context.Context, asOf domain.Date, timeZone string) ([]store.RecurringExpense, error)
 	InsertRecurringOccurrences(ctx context.Context, r store.RecurringExpense, dates []domain.Date) (int, error)
 }
 
@@ -99,10 +100,16 @@ func (s *Service) BillLease(ctx context.Context, l store.Lease, asOf domain.Date
 	return res, nil
 }
 
-// BillAll runs BillLease for every lease that may need charges. A failure on
-// one lease is logged and does not stop the others.
+// BillAll runs BillLease for every lease that may need charges, as of one
+// date for every owner. A failure on one lease is logged and does not stop
+// the others.
 func (s *Service) BillAll(ctx context.Context, asOf domain.Date) (Result, error) {
-	leases, err := s.store.BillableLeases(ctx, asOf)
+	return s.billZone(ctx, asOf, "")
+}
+
+// billZone is BillAll for the owners in one time zone, or all owners for "".
+func (s *Service) billZone(ctx context.Context, asOf domain.Date, timeZone string) (Result, error) {
+	leases, err := s.store.BillableLeases(ctx, asOf, timeZone)
 	if err != nil {
 		return Result{}, err
 	}
@@ -160,7 +167,11 @@ func (s *Service) GenerateRecurring(ctx context.Context, r store.RecurringExpens
 // GenerateAllRecurring runs GenerateRecurring for every owner's recurring
 // expenses. A failure on one is logged and does not stop the others.
 func (s *Service) GenerateAllRecurring(ctx context.Context, asOf domain.Date) (int, error) {
-	due, err := s.store.DueRecurringExpenses(ctx, asOf)
+	return s.recurringZone(ctx, asOf, "")
+}
+
+func (s *Service) recurringZone(ctx context.Context, asOf domain.Date, timeZone string) (int, error) {
+	due, err := s.store.DueRecurringExpenses(ctx, asOf, timeZone)
 	if err != nil {
 		return 0, err
 	}
@@ -176,19 +187,45 @@ func (s *Service) GenerateAllRecurring(ctx context.Context, asOf domain.Date) (i
 	return total, nil
 }
 
-// Run bills all leases and creates recurring expenses now and then on every
-// tick until ctx is cancelled.
+// RunOnce bills leases and creates recurring expenses for every owner, each
+// as of the date it is at now in the owner's time zone. Owners whose zone
+// cannot be loaded are billed in UTC.
+func (s *Service) RunOnce(ctx context.Context, now time.Time) (Result, error) {
+	zones, err := s.store.TimeZones(ctx)
+	if err != nil {
+		return Result{}, err
+	}
+	var total Result
+	for _, zone := range zones {
+		loc, err := domain.LoadZone(zone)
+		if err != nil {
+			s.log.Warn("billing in UTC", "time_zone", zone, "err", err)
+			loc = time.UTC
+		}
+		asOf := domain.TodayIn(now, loc)
+		res, err := s.billZone(ctx, asOf, zone)
+		if err != nil {
+			return total, err
+		}
+		total.Leases += res.Leases
+		total.Rent += res.Rent
+		total.LateFees += res.LateFees
+		n, err := s.recurringZone(ctx, asOf, zone)
+		if err != nil {
+			s.log.Error("recurring expenses failed", "time_zone", zone, "err", err)
+		}
+		total.Expenses += n
+	}
+	return total, nil
+}
+
+// Run calls RunOnce now and then on every tick until ctx is cancelled.
 func (s *Service) Run(ctx context.Context, every time.Duration) {
 	run := func() {
-		today := domain.Today()
-		res, err := s.BillAll(ctx, today)
+		res, err := s.RunOnce(ctx, time.Now())
 		if err != nil {
 			s.log.Error("billing run failed", "err", err)
 			return
-		}
-		res.Expenses, err = s.GenerateAllRecurring(ctx, today)
-		if err != nil {
-			s.log.Error("recurring expenses failed", "err", err)
 		}
 		s.log.Info("billing run finished", "leases", res.Leases, "rent_charges", res.Rent,
 			"late_fees", res.LateFees, "expenses", res.Expenses)

@@ -234,13 +234,16 @@ func (s *Store) getLeaseTx(ctx context.Context, tx pgx.Tx, ownerID, id string) (
 	return collectOne[Lease](rows, err)
 }
 
-// BillableLeases returns leases of every owner that may need rent generated
-// on asOf: started already and not ended more than two months ago.
-func (s *Store) BillableLeases(ctx context.Context, asOf domain.Date) ([]Lease, error) {
+// BillableLeases returns leases that may need rent generated on asOf:
+// started already and not ended more than two months ago. With a time zone
+// it only returns leases of owners in that zone, for whom asOf is today;
+// with "" it returns every owner's.
+func (s *Store) BillableLeases(ctx context.Context, asOf domain.Date, timeZone string) ([]Lease, error) {
 	rows, err := s.pool.Query(ctx, leaseSelect+`
 		WHERE l.start_date <= $1
 		  AND LEAST(l.end_date, COALESCE(l.terminated_on, l.end_date)) >= $1::date - 62
-		ORDER BY l.id`, asOf)
+		  AND ($2 = '' OR p.owner_id IN (SELECT id FROM users WHERE time_zone = $2))
+		ORDER BY l.id`, asOf, timeZone)
 	return collectAll[Lease](rows, err)
 }
 

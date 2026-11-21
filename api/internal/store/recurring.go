@@ -126,13 +126,15 @@ func (s *Store) DeleteRecurringExpense(ctx context.Context, ownerID, id string) 
 		 WHERE p.id = r.property_id AND p.owner_id = $1 AND r.id = $2`, ownerID, id))
 }
 
-// DueRecurringExpenses returns the recurring expenses of every owner that
-// have started by asOf and have not been generated through asOf yet.
-func (s *Store) DueRecurringExpenses(ctx context.Context, asOf domain.Date) ([]RecurringExpense, error) {
+// DueRecurringExpenses returns the recurring expenses that have started by
+// asOf and have not been generated through asOf yet, for owners in timeZone,
+// or for every owner when it is "".
+func (s *Store) DueRecurringExpenses(ctx context.Context, asOf domain.Date, timeZone string) ([]RecurringExpense, error) {
 	rows, err := s.pool.Query(ctx, recurringSelect+`
 		WHERE r.start_date <= $1
 		  AND (r.generated_through IS NULL OR r.generated_through < LEAST($1, COALESCE(r.end_date, $1)))
-		ORDER BY r.id`, asOf)
+		  AND ($2 = '' OR p.owner_id IN (SELECT id FROM users WHERE time_zone = $2))
+		ORDER BY r.id`, asOf, timeZone)
 	return collectAll[RecurringExpense](rows, err)
 }
 

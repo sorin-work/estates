@@ -33,6 +33,25 @@ func Today() Date {
 	return DateOf(time.Now().UTC())
 }
 
+// TodayIn returns the date it is at now in loc.
+func TodayIn(now time.Time, loc *time.Location) Date {
+	return DateOf(now.In(loc))
+}
+
+// LoadZone loads an IANA time zone by name, such as "America/Denver". It
+// refuses "" and "Local", which would mean the server's zone rather than the
+// landlord's.
+func LoadZone(name string) (*time.Location, error) {
+	if name == "" || name == "Local" {
+		return nil, fmt.Errorf("unknown time zone %q", name)
+	}
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		return nil, fmt.Errorf("unknown time zone %q", name)
+	}
+	return loc, nil
+}
+
 // ParseDate parses a "YYYY-MM-DD" string.
 func ParseDate(s string) (Date, error) {
 	t, err := time.Parse(dateLayout, s)

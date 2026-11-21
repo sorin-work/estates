@@ -19,11 +19,14 @@ type User struct {
 	DepositReturnDays int `db:"deposit_return_days" json:"deposit_return_days"`
 	// TokenVersion goes up when the password changes; older tokens stop
 	// working.
-	TokenVersion int       `db:"token_version" json:"-"`
-	CreatedAt    time.Time `db:"created_at" json:"created_at"`
+	TokenVersion int `db:"token_version" json:"-"`
+	// TimeZone is an IANA name such as "Europe/Bucharest". It decides what
+	// "today" is for this landlord.
+	TimeZone  string    `db:"time_zone" json:"time_zone"`
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
 }
 
-const userColumns = `id, email, name, password_hash, currency, deposit_return_days, token_version, created_at`
+const userColumns = `id, email, name, password_hash, currency, deposit_return_days, token_version, time_zone, created_at`
 
 // CreateUser inserts a user. It returns ErrConflict if the email is taken.
 func (s *Store) CreateUser(ctx context.Context, email, name, passwordHash string) (User, error) {
@@ -70,6 +73,15 @@ func (s *Store) CreateFirstUser(ctx context.Context, email, name, passwordHash s
 	return u, err
 }
 
+// TimeZones returns every time zone at least one account uses.
+func (s *Store) TimeZones(ctx context.Context) ([]string, error) {
+	rows, err := s.pool.Query(ctx, `SELECT DISTINCT time_zone FROM users ORDER BY 1`)
+	if err != nil {
+		return nil, err
+	}
+	return pgx.CollectRows(rows, pgx.RowTo[string])
+}
+
 // HasUsers reports whether any account exists.
 func (s *Store) HasUsers(ctx context.Context) (bool, error) {
 	var ok bool
@@ -93,12 +105,14 @@ type UserSettings struct {
 	Name              string `json:"name"`
 	Currency          string `json:"currency"`
 	DepositReturnDays int    `json:"deposit_return_days"`
+	TimeZone          string `json:"time_zone"`
 }
 
 func (s *Store) UpdateUser(ctx context.Context, id string, in UserSettings) error {
 	return execOne(s.pool.Exec(ctx, `
-		UPDATE users SET name = $2, currency = $3, deposit_return_days = $4, updated_at = now() WHERE id = $1`,
-		id, in.Name, in.Currency, in.DepositReturnDays))
+		UPDATE users SET name = $2, currency = $3, deposit_return_days = $4, time_zone = $5, updated_at = now()
+		 WHERE id = $1`,
+		id, in.Name, in.Currency, in.DepositReturnDays, in.TimeZone))
 }
 
 // SetPassword changes the password and bumps the token version, which signs

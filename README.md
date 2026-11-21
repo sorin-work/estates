@@ -145,6 +145,21 @@ It also publishes the API port on `127.0.0.1` only, so nothing else on your
 network can reach the API without going through nginx. If you run a proxy
 of your own in front, set `TRUSTED_PROXIES` to exactly its address.
 
+### Security headers
+
+nginx sends a content security policy with the app that only allows
+scripts, styles, images and API calls from the app's own address, and
+forbids framing it on another site. It also sends `nosniff`, a same-origin
+referrer policy and a permissions policy that turns off the camera,
+microphone and location. The API marks every response `no-store` with a
+policy that allows nothing to run, so a JSON or CSV response opened in a tab
+stays inert and tenants' details are not kept in caches.
+
+This setup serves plain HTTP. If you put a TLS proxy in front of it, have
+the proxy send `Strict-Transport-Security: max-age=31536000` so browsers
+never fall back to HTTP. The app does not send it itself, because over plain
+HTTP it would be ignored at best.
+
 ## Running locally
 
 You need Go 1.26+, Node 22+ and a Postgres database. The easiest is to run

@@ -4,6 +4,12 @@ The API is JSON over HTTP under `/api`. Everything except
 `/api/auth/register`, `/api/auth/login`, `/api/auth/config` and `/healthz`
 needs an `Authorization: Bearer <token>` header. See the README for the conventions on money, dates and errors.
 
+Every response carries `Cache-Control: no-store`,
+`Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`,
+`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY` and
+`Referrer-Policy: no-referrer`. Document downloads use
+`Cache-Control: private, no-store`.
+
 Every record belongs to the signed in landlord. An ID that belongs to
 someone else answers `404`, the same as one that does not exist.
 

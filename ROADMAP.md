@@ -56,7 +56,7 @@ heading at the top) are updated in the same pull request.
 | #   | Item                                         | Group   | Area          | Size | Depends on |
 | --- | -------------------------------------------- | ------- | ------------- | ---- | ---------- |
 | 1   | Slow down password guessing, close sign-up   | Shipped | security      | S    | -          |
-| 2   | Security headers                             | Next    | security      | S    | -          |
+| 2   | Security headers                             | Shipped | security      | S    | -          |
 | 3   | The landlord's time zone decides "today"     | Next    | rent          | M    | -          |
 | 4   | Scheduled backups and a restore guide        | Next    | ops           | S    | -          |
 | 5   | Tenant statements                            | Next    | rent          | S    | -          |
@@ -95,43 +95,6 @@ heading at the top) are updated in the same pull request.
 | 38  | Interest on deposits                         | Maybe   | deposits      | S    | -          |
 
 ## Next
-
-### 2. Security headers
-
-The API sets `X-Content-Type-Options` only on document downloads, and the
-nginx in `web/nginx.conf` sets nothing. The app keeps its login token in
-`localStorage` (`api/client.ts`), so a single injected script would own the
-account, and nothing tells the browser to refuse inline or third-party
-scripts. Nothing stops another site from framing the app either.
-
-- nginx, for the app shell: a `Content-Security-Policy` of `default-src
-'self'`, `script-src 'self'`, `style-src 'self'`, `img-src 'self' data:`,
-  `connect-src 'self'`, `frame-ancestors 'none'`, `base-uri 'self'`,
-  `form-action 'self'`, `object-src 'none'`. Plus `X-Content-Type-Options:
-nosniff`, `Referrer-Policy: same-origin` and a `Permissions-Policy` that
-  turns off camera, microphone and location.
-- The API gets a middleware that sets `nosniff`, `Referrer-Policy` and a
-  strict CSP (`default-src 'none'; frame-ancestors 'none'`) on every
-  response, so JSON opened directly in a tab cannot run anything either.
-  JSON and CSV responses also get `Cache-Control: no-store`, since they
-  carry tenants' details.
-- `Strict-Transport-Security` only makes sense behind HTTPS, which this
-  setup does not terminate. Document it in the README for whoever puts a
-  TLS proxy in front, rather than sending it over plain HTTP.
-- Tricky: inline code. `web/index.html` loads only the bundle today, and
-  the theme is applied from `lib/theme.ts` inside it. A later "apply the
-  theme before first paint" snippet in `index.html` would be blocked, so
-  it has to stay a file. Inline `style` attributes set from React are
-  allowed by CSP, but a `<style>` block is not. Vite's dev server is not
-  behind nginx, so check the production build with `npm run preview`.
-- Tricky: `add_header` in nginx does not inherit into a `location` that has
-  its own `add_header`. The `/assets/` block sets `Cache-Control`, so the
-  headers need to be repeated there or moved into a shared include.
-- Undecided: a CSP report endpoint. Not for now; nobody would read the
-  reports.
-- Tests: a router test that a JSON response, a CSV export and an error all
-  carry the headers. The nginx side has no tests; the docker job in CI can
-  `curl -I` the shell and check for the CSP header.
 
 ### 3. The landlord's time zone decides "today"
 
@@ -768,3 +731,20 @@ fixed address, trusts only that and publishes the API on `127.0.0.1` only.
 As planned there is no account lockout. The limits are in memory and per
 process, so a restart clears them and several API instances would each allow
 the full amount.
+
+### 2. Security headers
+
+nginx sends a content security policy for the app (`default-src 'self'`,
+scripts, styles and images from the app only, `object-src 'none'`,
+`frame-ancestors 'none'`), plus `nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: same-origin` and a permissions policy. The headers live in
+`web/security-headers.conf`, included in both locations because nginx drops
+server-level headers in a location with its own `add_header`; `/api/` is
+left to the API so headers are not doubled. A new API middleware sets
+`nosniff`, `X-Frame-Options`, `Referrer-Policy: no-referrer`,
+`Content-Security-Policy: default-src 'none'; frame-ancestors 'none'` and
+`Cache-Control: no-store` on every response, which replaces the per-handler
+`no-store` lines. Unlike the plan, `img-src` does not allow `data:`, since
+nothing uses it. HSTS is documented for whoever adds TLS, not sent. The CI
+docker job checks for the CSP and `nosniff`. Still open: no browser test
+proves every page renders under the policy, and no report endpoint.

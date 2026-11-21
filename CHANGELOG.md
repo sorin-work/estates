@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The web app is served with a content security policy, `nosniff`,
+  `X-Frame-Options: DENY`, a referrer policy and a permissions policy.
+- Every API response is `no-store` and carries a policy that allows nothing
+  to run or frame it.
+
 - Sign-in is rate limited by address, and by email and address together, so
   guessing from one address cannot lock the owner out. Sign-up is limited
   by address. Over a limit the API answers `429` with `Retry-After`.

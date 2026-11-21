@@ -13,21 +13,53 @@ type receiptParty struct {
 	Phone string `json:"phone,omitempty"`
 }
 
+type receiptPlace struct {
+	Name         string `json:"name"`
+	AddressLine1 string `json:"address_line1"`
+	AddressLine2 string `json:"address_line2"`
+	City         string `json:"city"`
+	Region       string `json:"region"`
+	PostalCode   string `json:"postal_code"`
+	UnitLabel    string `json:"unit_label"`
+}
+
+// letterhead is who and where a printed receipt or statement is about.
+type letterhead struct {
+	Landlord receiptParty `json:"landlord"`
+	Tenant   receiptParty `json:"tenant"`
+	Property receiptPlace `json:"property"`
+}
+
+// loadLetterhead reads the landlord, the tenant and the property of a lease.
+func (s *Server) loadLetterhead(r *http.Request, l store.Lease) (letterhead, error) {
+	ctx, owner := r.Context(), userID(r)
+	var h letterhead
+	tenant, err := s.store.GetTenant(ctx, owner, l.TenantID)
+	if err != nil {
+		return h, err
+	}
+	prop, err := s.store.GetProperty(ctx, owner, l.PropertyID, s.today(r))
+	if err != nil {
+		return h, err
+	}
+	landlord, err := s.store.UserByID(ctx, owner)
+	if err != nil {
+		return h, err
+	}
+	h.Landlord = receiptParty{Name: landlord.Name, Email: landlord.Email}
+	h.Tenant = receiptParty{Name: tenant.FirstName + " " + tenant.LastName, Email: tenant.Email, Phone: tenant.Phone}
+	h.Property = receiptPlace{
+		Name: prop.Name, AddressLine1: prop.AddressLine1, AddressLine2: prop.AddressLine2,
+		City: prop.City, Region: prop.Region, PostalCode: prop.PostalCode, UnitLabel: l.UnitLabel,
+	}
+	return h, nil
+}
+
 type receiptResponse struct {
 	Number   int           `json:"number"`
 	IssuedOn domain.Date   `json:"issued_on"`
 	Payment  store.Payment `json:"payment"`
-	Landlord receiptParty  `json:"landlord"`
-	Tenant   receiptParty  `json:"tenant"`
-	Property struct {
-		Name         string `json:"name"`
-		AddressLine1 string `json:"address_line1"`
-		AddressLine2 string `json:"address_line2"`
-		City         string `json:"city"`
-		Region       string `json:"region"`
-		PostalCode   string `json:"postal_code"`
-		UnitLabel    string `json:"unit_label"`
-	} `json:"property"`
+	letterhead
 	// BalanceAfterCents is what was still owed on the lease once this
 	// payment, and any others made the same day, had been counted.
 	BalanceAfterCents int64 `json:"balance_after_cents"`
@@ -48,15 +80,7 @@ func (s *Server) paymentReceipt(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	tenant, err := s.store.GetTenant(ctx, owner, l.TenantID)
-	if err != nil {
-		return err
-	}
-	prop, err := s.store.GetProperty(ctx, owner, l.PropertyID, s.today(r))
-	if err != nil {
-		return err
-	}
-	landlord, err := s.store.UserByID(ctx, owner)
+	head, err := s.loadLetterhead(r, l)
 	if err != nil {
 		return err
 	}
@@ -65,16 +89,7 @@ func (s *Server) paymentReceipt(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	resp := receiptResponse{Number: p.ReceiptNumber, IssuedOn: s.today(r), Payment: p}
-	resp.Landlord = receiptParty{Name: landlord.Name, Email: landlord.Email}
-	resp.Tenant = receiptParty{Name: tenant.FirstName + " " + tenant.LastName, Email: tenant.Email, Phone: tenant.Phone}
-	resp.Property.Name = prop.Name
-	resp.Property.AddressLine1 = prop.AddressLine1
-	resp.Property.AddressLine2 = prop.AddressLine2
-	resp.Property.City = prop.City
-	resp.Property.Region = prop.Region
-	resp.Property.PostalCode = prop.PostalCode
-	resp.Property.UnitLabel = l.UnitLabel
+	resp := receiptResponse{Number: p.ReceiptNumber, IssuedOn: s.today(r), Payment: p, letterhead: head}
 	if e := entries[l.ID]; e != nil {
 		for _, c := range e.Charges {
 			if !c.DueDate.After(p.PaidOn) {

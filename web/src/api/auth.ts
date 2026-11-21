@@ -18,7 +18,7 @@ export function me() {
   return api<User>('/auth/me');
 }
 
-export function updateMe(input: { name: string; currency: string; deposit_return_days: number }) {
+export function updateMe(input: { name: string; currency: string; deposit_return_days: number; time_zone: string }) {
   return api<User>('/auth/me', { method: 'PUT', body: input });
 }
 

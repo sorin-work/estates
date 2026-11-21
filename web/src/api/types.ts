@@ -8,6 +8,8 @@ export interface User {
   name: string;
   currency: string;
   deposit_return_days: number;
+  /** IANA name; decides what "today" is for rent and reminders. */
+  time_zone: string;
   created_at: string;
 }
 

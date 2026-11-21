@@ -8,12 +8,16 @@ import { FormError } from '../components/States';
 import { useFormSubmit } from '../components/useFormSubmit';
 import { currencies } from '../lib/labels';
 import { getTheme, setTheme, type Theme } from '../lib/theme';
+import { browserTimeZone, timeZoneLabel, timeZoneOptions } from '../lib/timezones';
 
 function ProfileForm() {
   const { user, updateUser } = useAuth();
   const [name, setName] = useState(user?.name ?? '');
   const [currency, setCurrency] = useState(user?.currency ?? 'USD');
   const [returnDays, setReturnDays] = useState(String(user?.deposit_return_days ?? 30));
+  const [timeZone, setTimeZone] = useState(user?.time_zone || 'UTC');
+  const browserZone = browserTimeZone();
+  const [zones] = useState(() => timeZoneOptions(user?.time_zone ?? '', browserZone));
   const [saved, setSaved] = useState(false);
   const { submitting, error, errors, run } = useFormSubmit();
 
@@ -21,7 +25,7 @@ function ProfileForm() {
     e.preventDefault();
     setSaved(false);
     void run(async () => {
-      updateUser(await updateMe({ name, currency, deposit_return_days: Number(returnDays) || 0 }));
+      updateUser(await updateMe({ name, currency, deposit_return_days: Number(returnDays) || 0, time_zone: timeZone }));
       setSaved(true);
     });
   }
@@ -60,6 +64,29 @@ function ProfileForm() {
           />
         )}
       </Field>
+      <Field
+        label="Time zone"
+        error={errors.time_zone}
+        hint="Decides what today is: when rent falls due, when it is late and which month is this month."
+      >
+        {(id) => (
+          <select id={id} value={timeZone} onChange={(e) => setTimeZone(e.target.value)}>
+            {zones.map((z) => (
+              <option key={z} value={z}>
+                {timeZoneLabel(z)}
+              </option>
+            ))}
+          </select>
+        )}
+      </Field>
+      {browserZone && browserZone !== timeZone && (
+        <p className="muted">
+          This device is set to {timeZoneLabel(browserZone)}.{' '}
+          <button type="button" className="button secondary small" onClick={() => setTimeZone(browserZone)}>
+            Use {timeZoneLabel(browserZone)}
+          </button>
+        </p>
+      )}
       <div className="form-actions">
         {saved && (
           <span className="muted" role="status">

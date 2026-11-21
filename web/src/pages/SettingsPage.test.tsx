@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getToken, setToken } from '../api/client';
 import { AuthProvider } from '../auth/AuthContext';
 import { RequireAuth } from '../auth/guards';
@@ -15,6 +15,7 @@ const user = {
   name: 'Demo',
   currency: 'USD',
   deposit_return_days: 30,
+  time_zone: 'UTC',
   created_at: '',
 };
 
@@ -33,6 +34,7 @@ function renderSettings() {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks();
   setToken(null);
   setCurrency('USD');
 });
@@ -52,8 +54,39 @@ describe('SettingsPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(await screen.findByText('Saved')).toBeInTheDocument();
-    expect(calls.at(-1)?.body).toEqual({ name: 'Demo Landlord', currency: 'EUR', deposit_return_days: 30 });
+    expect(calls.at(-1)?.body).toEqual({
+      name: 'Demo Landlord',
+      currency: 'EUR',
+      deposit_return_days: 30,
+      time_zone: 'UTC',
+    });
     expect(formatMoney(100)).toBe('€1.00');
+  });
+
+  it('saves the time zone', async () => {
+    const calls = mockFetch({
+      'GET /api/auth/me': { body: user },
+      'PUT /api/auth/me': { body: { ...user, time_zone: 'Europe/Bucharest' } },
+    });
+    renderSettings();
+
+    await userEvent.selectOptions(await screen.findByLabelText('Time zone'), 'Europe/Bucharest');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText('Saved')).toBeInTheDocument();
+    expect(calls.at(-1)?.body).toMatchObject({ time_zone: 'Europe/Bucharest' });
+  });
+
+  it("offers the device's time zone when it differs from the saved one", async () => {
+    vi.spyOn(Intl.DateTimeFormat.prototype, 'resolvedOptions').mockReturnValue({
+      timeZone: 'Pacific/Auckland',
+    } as Intl.ResolvedDateTimeFormatOptions);
+    mockFetch({ 'GET /api/auth/me': { body: user } });
+    renderSettings();
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Use Pacific / Auckland' }));
+    expect(screen.getByLabelText('Time zone')).toHaveValue('Pacific/Auckland');
+    expect(screen.queryByRole('button', { name: 'Use Pacific / Auckland' })).not.toBeInTheDocument();
   });
 
   it('checks the repeated password before calling the API', async () => {

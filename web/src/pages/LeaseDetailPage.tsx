@@ -199,6 +199,9 @@ export default function LeaseDetailPage() {
             <button type="button" className="button secondary" onClick={() => setDialog('edit')}>
               Edit
             </button>
+            <Link className="button secondary" to={`/leases/${l.id}/statement`}>
+              Statement
+            </Link>
             {!l.renewed_by_id && !l.terminated_on && l.status !== 'upcoming' && (
               <button type="button" className="button secondary" onClick={() => setDialog('renew')}>
                 Renew

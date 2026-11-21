@@ -1,5 +1,5 @@
 import { api, download } from './client';
-import type { Balance, Payment, PaymentInput, PaymentList, Receipt } from './types';
+import type { Balance, Payment, PaymentInput, PaymentList, Receipt, Statement } from './types';
 
 export interface PaymentFilter {
   lease_id?: string;
@@ -23,3 +23,7 @@ export const exportBalances = () => download('/rent/balances.csv', undefined, 'r
 export const runBilling = () =>
   api<{ leases: number; rent_charges: number; late_fees: number }>('/rent/run', { method: 'POST' });
 export const getReceipt = (paymentId: string) => api<Receipt>(`/payments/${paymentId}/receipt`);
+
+/** A lease's account over a period; without dates, from its start to today. */
+export const getStatement = (leaseId: string, period: { from?: string; to?: string } = {}) =>
+  api<Statement>(`/leases/${leaseId}/statement`, { query: period });

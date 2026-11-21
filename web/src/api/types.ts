@@ -441,6 +441,32 @@ export interface Receipt {
   balance_after_cents: Cents;
 }
 
+export interface StatementLine {
+  id: string;
+  date: ISODate;
+  payment: boolean;
+  /** A charge kind, or the payment method for payments. */
+  kind: string;
+  description: string;
+  amount_cents: Cents;
+  balance_cents: Cents;
+}
+
+export interface Statement {
+  from: ISODate;
+  to: ISODate;
+  issued_on: ISODate;
+  opening_cents: Cents;
+  charged_cents: Cents;
+  paid_cents: Cents;
+  closing_cents: Cents;
+  lines: StatementLine[];
+  lease: { id: string; start_date: ISODate; end_date: ISODate };
+  landlord: Receipt['landlord'];
+  tenant: Receipt['tenant'];
+  property: Receipt['property'];
+}
+
 export interface Activity {
   id: number;
   entity_type: string;

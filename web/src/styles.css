@@ -1209,6 +1209,20 @@ input[type='checkbox'] {
   font-size: 1.5rem;
 }
 
+.statement-actions {
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.statement-actions .field {
+  margin: 0;
+}
+
+.statement-lines {
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
 @media print {
   .no-print,
   .sidebar,

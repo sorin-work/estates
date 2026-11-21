@@ -18,6 +18,7 @@ const MaintenancePage = lazy(() => import('./pages/MaintenancePage'));
 const PropertiesPage = lazy(() => import('./pages/PropertiesPage'));
 const PropertyDetailPage = lazy(() => import('./pages/PropertyDetailPage'));
 const ReceiptPage = lazy(() => import('./pages/ReceiptPage'));
+const StatementPage = lazy(() => import('./pages/StatementPage'));
 const RentPage = lazy(() => import('./pages/RentPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
@@ -36,6 +37,7 @@ export default function App() {
         </Route>
         <Route element={<RequireAuth />}>
           <Route path="payments/:id/receipt" element={<ReceiptPage />} />
+          <Route path="leases/:id/statement" element={<StatementPage />} />
           <Route element={<Layout />}>
             <Route index element={<DashboardPage />} />
             <Route path="properties" element={<PropertiesPage />} />

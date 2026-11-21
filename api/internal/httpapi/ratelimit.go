@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"crypto/sha256"
 	"net"
 	"net/http"
 	"net/netip"
@@ -15,11 +16,15 @@ import (
 // per. Buckets that have filled up again are forgotten, so the map only
 // holds keys that were busy recently.
 //
+// At most maxKeys buckets are kept; past that the one idle the longest is
+// dropped, so a flood of new keys costs a bounded amount of memory.
+//
 // It is per process: running several API instances multiplies the limits.
 type limiter struct {
-	burst int
-	per   time.Duration
-	now   func() time.Time
+	burst   int
+	per     time.Duration
+	now     func() time.Time
+	maxKeys int
 
 	mu        sync.Mutex
 	buckets   map[string]*bucket
@@ -32,8 +37,12 @@ type bucket struct {
 }
 
 func newLimiter(burst int, per time.Duration) *limiter {
-	return &limiter{burst: burst, per: per, now: time.Now, buckets: map[string]*bucket{}}
+	return &limiter{burst: burst, per: per, now: time.Now, maxKeys: defaultMaxKeys, buckets: map[string]*bucket{}}
 }
+
+// defaultMaxKeys bounds each limiter's map. A bucket is a few dozen bytes
+// plus its key, so this is a few megabytes at most.
+const defaultMaxKeys = 50_000
 
 // refill brings b up to date at now and reports whether it is full.
 func (l *limiter) refill(b *bucket, now time.Time) bool {
@@ -46,6 +55,12 @@ func (l *limiter) refill(b *bucket, now time.Time) bool {
 // take uses one attempt for key. When none is left it uses nothing and
 // returns how long until the next one.
 func (l *limiter) take(key string) (bool, time.Duration) {
+	return l.takeFrom(key, l.burst)
+}
+
+// takeFrom is take for a key that, if new, starts with only start attempts
+// instead of the full burst.
+func (l *limiter) takeFrom(key string, start int) (bool, time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	now := l.now()
@@ -53,7 +68,8 @@ func (l *limiter) take(key string) (bool, time.Duration) {
 
 	b, ok := l.buckets[key]
 	if !ok {
-		b = &bucket{tokens: float64(l.burst), at: now}
+		l.makeRoom()
+		b = &bucket{tokens: float64(min(start, l.burst)), at: now}
 		l.buckets[key] = b
 	}
 	l.refill(b, now)
@@ -63,6 +79,34 @@ func (l *limiter) take(key string) (bool, time.Duration) {
 	}
 	perToken := l.per / time.Duration(l.burst)
 	return false, time.Duration((1 - b.tokens) * float64(perToken))
+}
+
+// has reports whether key has an attempt left, without using it.
+func (l *limiter) has(key string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	b, ok := l.buckets[key]
+	if !ok {
+		return true
+	}
+	l.refill(b, l.now())
+	return b.tokens >= 1
+}
+
+// makeRoom drops the bucket used longest ago when the map is full. The
+// caller holds mu.
+func (l *limiter) makeRoom() {
+	if len(l.buckets) < l.maxKeys {
+		return
+	}
+	var oldest string
+	var at time.Time
+	for k, b := range l.buckets {
+		if oldest == "" || b.at.Before(at) {
+			oldest, at = k, b.at
+		}
+	}
+	delete(l.buckets, oldest)
 }
 
 // reset gives key all its attempts back.
@@ -96,26 +140,44 @@ const (
 	// loginsPerAddress is how many login attempts one address may make a
 	// minute, right or wrong.
 	loginsPerAddress = 20
-	// failuresPerEmail is how many wrong passwords an email may get in
-	// emailWindow. A successful login gives them back.
-	failuresPerEmail = 5
-	emailWindow      = 15 * time.Minute
+	// failuresPerPair is how many wrong passwords one address may try for
+	// one email in failureWindow. A right password gives them back.
+	failuresPerPair = 5
+	// failuresPerEmail is how many wrong passwords an email may get from
+	// all addresses together in failureWindow. Past it, an address trying
+	// that email for the first time gets one attempt instead of
+	// failuresPerPair. It never refuses anyone by itself.
+	failuresPerEmail = 20
+	failureWindow    = 15 * time.Minute
 	// signupsPerAddress is how many accounts one address may create an hour.
 	signupsPerAddress = 10
 )
 
 type authLimits struct {
 	loginByAddress  *limiter
-	loginByEmail    *limiter
+	loginByPair     *limiter
+	failuresByEmail *limiter
 	signupByAddress *limiter
 }
 
 func newAuthLimits() authLimits {
 	return authLimits{
 		loginByAddress:  newLimiter(loginsPerAddress, time.Minute),
-		loginByEmail:    newLimiter(failuresPerEmail, emailWindow),
+		loginByPair:     newLimiter(failuresPerPair, failureWindow),
+		failuresByEmail: newLimiter(failuresPerEmail, failureWindow),
 		signupByAddress: newLimiter(signupsPerAddress, time.Hour),
 	}
+}
+
+// limitKey turns parts of a key into a short fixed-size string, so the
+// limiters never hold what a client typed.
+func limitKey(parts ...string) string {
+	h := sha256.New()
+	for _, p := range parts {
+		h.Write([]byte(p))
+		h.Write([]byte{0})
+	}
+	return string(h.Sum(nil)[:16])
 }
 
 // errTooManyAttempts answers 429 with a Retry-After header in whole seconds.

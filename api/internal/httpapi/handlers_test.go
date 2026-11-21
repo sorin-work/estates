@@ -46,6 +46,13 @@ func (f *fakeStore) CreateUser(_ context.Context, email, name, hash string) (sto
 	return u, nil
 }
 
+func (f *fakeStore) CreateFirstUser(ctx context.Context, email, name, hash string) (store.User, error) {
+	if len(f.users) > 0 {
+		return store.User{}, store.ErrNotFirstUser
+	}
+	return f.CreateUser(ctx, email, name, hash)
+}
+
 func (f *fakeStore) HasUsers(context.Context) (bool, error) { return len(f.users) > 0, nil }
 
 func (f *fakeStore) UserByEmail(_ context.Context, email string) (store.User, error) {

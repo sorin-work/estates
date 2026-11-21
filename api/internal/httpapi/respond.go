@@ -85,7 +85,12 @@ const maxBodyBytes = 1 << 20
 
 // decode reads a JSON request body into dst.
 func decode(w http.ResponseWriter, r *http.Request, dst any) error {
-	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+	return decodeLimit(w, r, dst, maxBodyBytes)
+}
+
+// decodeLimit is decode with a smaller cap on the body.
+func decodeLimit(w http.ResponseWriter, r *http.Request, dst any, limit int64) error {
+	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	dec := json.NewDecoder(r.Body)
 	if err := dec.Decode(dst); err != nil {
 		var syntaxErr *json.SyntaxError

@@ -2,7 +2,10 @@ package store
 
 import (
 	"context"
+	"errors"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type User struct {
@@ -29,6 +32,38 @@ func (s *Store) CreateUser(ctx context.Context, email, name, passwordHash string
 		VALUES ($1, $2, $3)
 		RETURNING `+userColumns, email, name, passwordHash)
 	u, err := collectOne[User](rows, err)
+	if isUniqueViolation(err) {
+		return User{}, conflict("an account with this email already exists")
+	}
+	return u, err
+}
+
+// ErrNotFirstUser means CreateFirstUser found an account already there.
+var ErrNotFirstUser = errors.New("an account already exists")
+
+// CreateFirstUser inserts a user only if there is none yet. The table lock
+// makes two concurrent calls on an empty database create one account, not
+// two.
+func (s *Store) CreateFirstUser(ctx context.Context, email, name, passwordHash string) (User, error) {
+	var u User
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `LOCK TABLE users IN SHARE ROW EXCLUSIVE MODE`); err != nil {
+			return err
+		}
+		var exists bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM users)`).Scan(&exists); err != nil {
+			return err
+		}
+		if exists {
+			return ErrNotFirstUser
+		}
+		rows, err := tx.Query(ctx, `
+			INSERT INTO users (email, name, password_hash)
+			VALUES ($1, $2, $3)
+			RETURNING `+userColumns, email, name, passwordHash)
+		u, err = collectOne[User](rows, err)
+		return err
+	})
 	if isUniqueViolation(err) {
 		return User{}, conflict("an account with this email already exists")
 	}

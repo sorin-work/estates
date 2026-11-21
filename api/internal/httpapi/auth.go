@@ -14,6 +14,7 @@ import (
 
 type userStore interface {
 	CreateUser(ctx context.Context, email, name, passwordHash string) (store.User, error)
+	CreateFirstUser(ctx context.Context, email, name, passwordHash string) (store.User, error)
 	HasUsers(ctx context.Context) (bool, error)
 	UserByEmail(ctx context.Context, email string) (store.User, error)
 	UserByID(ctx context.Context, id string) (store.User, error)
@@ -57,8 +58,13 @@ func (s *Server) authConfig(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
+func errRegistrationClosed() error {
+	return &apiError{Status: http.StatusForbidden, Code: "registration_closed",
+		Message: "this server does not take new accounts"}
+}
+
 func (s *Server) register(w http.ResponseWriter, r *http.Request) error {
-	if ok, wait := s.limits.signupByAddress.take(clientAddr(r, s.trustedProxies)); !ok {
+	if ok, wait := s.limits.signupByAddress.take(limitKey(clientAddr(r, s.trustedProxies))); !ok {
 		return errTooManyAttempts(w, wait)
 	}
 	open, err := s.registrationOpen(r.Context())
@@ -66,8 +72,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	if !open {
-		return &apiError{Status: http.StatusForbidden, Code: "registration_closed",
-			Message: "this server does not take new accounts"}
+		return errRegistrationClosed()
 	}
 
 	var in struct {
@@ -75,7 +80,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) error {
 		Name     string `json:"name"`
 		Password string `json:"password"`
 	}
-	if err := decode(w, r, &in); err != nil {
+	if err := decodeLimit(w, r, &in, authBodyBytes); err != nil {
 		return err
 	}
 	trim(&in.Email, &in.Name)
@@ -84,6 +89,7 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) error {
 	var v validator
 	v.required(in.Email, "email")
 	v.email(in.Email, "email")
+	v.maxLen(in.Email, "email", maxEmailLength)
 	v.required(in.Name, "name")
 	v.maxLen(in.Name, "name", 100)
 	if msg := auth.ValidatePassword(in.Password); msg != "" {
@@ -97,7 +103,15 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	u, err := s.store.CreateUser(r.Context(), in.Email, in.Name, hash)
+	create := s.store.CreateUser
+	if s.closeRegistration {
+		// Two sign-ups racing on a fresh install must not both get in.
+		create = s.store.CreateFirstUser
+	}
+	u, err := create(r.Context(), in.Email, in.Name, hash)
+	if errors.Is(err, store.ErrNotFirstUser) {
+		return errRegistrationClosed()
+	}
 	if err != nil {
 		return err
 	}
@@ -109,12 +123,22 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) error {
 // missing account takes as long as one with a wrong password.
 var dummyHash, _ = auth.HashPassword("not-a-real-password")
 
-// login is limited twice: by address, counting every attempt, and by email,
-// counting wrong passwords until one is right. The email limit applies the
-// same way to addresses with no account, so it does not reveal which exist.
+// maxEmailLength is the longest email address that can exist.
+const maxEmailLength = 254
+
+// authBodyBytes is plenty for an email, a name and a password.
+const authBodyBytes = 4 << 10
+
+// login is limited by address, counting every attempt, and by email and
+// address together, counting wrong passwords until one is right. Someone
+// guessing from one address therefore never stops the owner signing in from
+// another. Wrong passwords for an email from all addresses are counted too;
+// past a point, an address new to that email starts with one attempt. The
+// limits work the same for emails with no account, so they do not reveal
+// which exist.
 func (s *Server) login(w http.ResponseWriter, r *http.Request) error {
 	addr := clientAddr(r, s.trustedProxies)
-	if ok, wait := s.limits.loginByAddress.take(addr); !ok {
+	if ok, wait := s.limits.loginByAddress.take(limitKey(addr)); !ok {
 		s.log.Warn("login limited", "by", "address", "addr", addr)
 		return errTooManyAttempts(w, wait)
 	}
@@ -122,28 +146,42 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) error {
 		Email    string `json:"email"`
 		Password string `json:"password"`
 	}
-	if err := decode(w, r, &in); err != nil {
+	if err := decodeLimit(w, r, &in, authBodyBytes); err != nil {
 		return err
 	}
+	invalid := &apiError{Status: http.StatusUnauthorized, Code: "invalid_credentials", Message: "email or password is incorrect"}
 	email := strings.ToLower(strings.TrimSpace(in.Email))
-	if ok, wait := s.limits.loginByEmail.take(email); !ok {
+	if len(email) > maxEmailLength {
+		auth.CheckPassword(dummyHash, in.Password)
+		return invalid
+	}
+
+	emailKey, pairKey := limitKey(email), limitKey(email, addr)
+	start := failuresPerPair
+	if !s.limits.failuresByEmail.has(emailKey) {
+		start = 1
+	}
+	if ok, wait := s.limits.loginByPair.takeFrom(pairKey, start); !ok {
 		s.log.Warn("login limited", "by", "email", "addr", addr)
 		return errTooManyAttempts(w, wait)
 	}
-	invalid := &apiError{Status: http.StatusUnauthorized, Code: "invalid_credentials", Message: "email or password is incorrect"}
+	failed := func() error {
+		s.limits.failuresByEmail.take(emailKey)
+		return invalid
+	}
 
 	u, err := s.store.UserByEmail(r.Context(), email)
 	if errors.Is(err, store.ErrNotFound) {
 		auth.CheckPassword(dummyHash, in.Password)
-		return invalid
+		return failed()
 	}
 	if err != nil {
 		return err
 	}
 	if !auth.CheckPassword(u.PasswordHash, in.Password) {
-		return invalid
+		return failed()
 	}
-	s.limits.loginByEmail.reset(email)
+	s.limits.loginByPair.reset(pairKey)
 	return s.issue(w, http.StatusOK, u)
 }
 

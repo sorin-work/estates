@@ -26,13 +26,14 @@ services:
       # Creates demo@example.com / demo-password with a year of sample data.
       SEED_DEMO: ${SEED_DEMO:-true}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
-      # nginx in the web container passes on the client address.
-      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.16.0.0/12}
+      # Only nginx in the web container may pass on the client address.
+      TRUSTED_PROXIES: ${WEB_IP:-172.31.240.10}
     depends_on:
       db:
         condition: service_healthy
+    # Published on this machine only: browsers go through nginx.
     ports:
-      - '${API_PORT:-4200}:4200'
+      - '127.0.0.1:${API_PORT:-4200}:4200'
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:4200/healthz || exit 1']
       interval: 5s
@@ -47,11 +48,22 @@ services:
         condition: service_healthy
     ports:
       - '${WEB_PORT:-5175}:80'
+    networks:
+      default:
+        ipv4_address: ${WEB_IP:-172.31.240.10}
     healthcheck:
       test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1/ > /dev/null || exit 1']
       interval: 10s
       timeout: 3s
       retries: 5
+
+# A fixed subnet so the web container has a known address for
+# TRUSTED_PROXIES. Change SUBNET and WEB_IP together if it clashes.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${SUBNET:-172.31.240.0/24}
 
 volumes:
   db-data:

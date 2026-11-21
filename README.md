@@ -80,7 +80,7 @@ start with an empty database.
 | Service | Port (host)           | Notes                                     |
 | ------- | --------------------- | ----------------------------------------- |
 | web     | http://localhost:5175 | nginx, proxies `/api` to the API          |
-| api     | http://localhost:4200 | `GET /healthz` for health checks          |
+| api     | http://localhost:4200 | This machine only; `GET /healthz`         |
 | db      | `localhost:5434`      | Postgres 17, user/password/db `estates`   |
 
 The ports can be changed with `WEB_PORT`, `API_PORT` and `DB_PORT`. The API
@@ -114,24 +114,36 @@ The API reads its settings from the environment:
 
 ### Signing in from the internet
 
-The API slows down password guessing. One address can try to sign in 20
-times a minute, and an email gets 5 wrong passwords in 15 minutes before
-further attempts wait (a correct password clears the count). Sign-up is
-limited to 10 accounts an hour per address. Over a limit the API answers
-`429` with a `Retry-After` header, and the sign-in page says how long to
-wait. The counts live in memory, so a restart clears them.
+The API slows down password guessing:
+
+- One address can try to sign in 20 times a minute. Right passwords count
+  too, so many people behind one shared address (an office, a phone
+  network) share those 20.
+- One address gets 5 wrong passwords for one email in 15 minutes, then
+  waits. A right password clears the count. Someone guessing from one
+  address does not stop you signing in from another.
+- Once an email has had 20 wrong passwords in 15 minutes from all
+  addresses together, an address trying it for the first time gets one
+  attempt instead of five. This never refuses a right password on its own.
+- Sign-up is limited to 10 accounts an hour per address.
+
+Over a limit the API answers `429` with a `Retry-After` header, and the
+sign-in page says how long to wait. The counts live in memory, so a restart
+clears them, and each limiter keeps at most 50,000 entries.
 
 If the app is reachable by people other than you, set
 `ALLOW_REGISTRATION=false` once your account exists. A fresh install can
-still create its first account.
+still create its first account. `SEED_DEMO=true` creates the demo account
+on start, so with both set nobody can sign up at all; sign in as the demo
+user or turn the seed off.
 
 To limit by the real client address the API has to know which proxies to
-believe for `X-Forwarded-For`. Docker Compose sets `TRUSTED_PROXIES` to
-`172.16.0.0/12`, the range Docker gives its networks, so the nginx
-container counts. If your own network uses addresses in that range, or you
-run a proxy of your own in front, set it to exactly the proxy addresses.
-Anything that can reach the API directly from a trusted address can claim
-to be any client.
+believe for `X-Forwarded-For`. Docker Compose gives its network a fixed
+subnet (`SUBNET`, default `172.31.240.0/24`) and the web container a fixed
+address (`WEB_IP`, default `172.31.240.10`), and trusts only that address.
+It also publishes the API port on `127.0.0.1` only, so nothing else on your
+network can reach the API without going through nginx. If you run a proxy
+of your own in front, set `TRUSTED_PROXIES` to exactly its address.
 
 ## Running locally
 

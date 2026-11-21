@@ -103,6 +103,7 @@ func (s *Server) Handler() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(s.logRequests)
+	r.Use(securityHeaders)
 	r.Use(s.recoverPanics)
 	r.Use(s.cors)
 	// Lists and exports are mostly repeated text and shrink a lot.

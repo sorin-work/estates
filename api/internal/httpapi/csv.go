@@ -13,7 +13,6 @@ import (
 func writeCSV(w http.ResponseWriter, filename string, header []string, rows [][]string) error {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", filename))
-	w.Header().Set("Cache-Control", "no-store")
 	cw := csv.NewWriter(w)
 	if err := cw.Write(header); err != nil {
 		return err

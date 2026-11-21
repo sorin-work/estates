@@ -48,6 +48,22 @@ func (s *Server) recoverPanics(next http.Handler) http.Handler {
 	})
 }
 
+// securityHeaders marks every response as data that must not be run,
+// framed or kept. The API only answers JSON, CSV and file downloads, so its
+// content policy allows nothing at all. Handlers may still set their own
+// Cache-Control, as document downloads do.
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // cors allows the configured origins to call the API from the browser. In
 // the Docker setup nginx proxies /api so no origins need to be allowed.
 func (s *Server) cors(next http.Handler) http.Handler {

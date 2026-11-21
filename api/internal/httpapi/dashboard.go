@@ -129,7 +129,6 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) error {
 		resp.Maintenance.Recent = append(resp.Maintenance.Recent, viewMaintenance(m))
 	}
 
-	w.Header().Set("Cache-Control", "no-store")
 	writeJSON(w, http.StatusOK, resp)
 	return nil
 }

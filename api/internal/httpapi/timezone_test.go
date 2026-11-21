@@ -33,9 +33,19 @@ func TestTodayFollowsTheUsersTimeZone(t *testing.T) {
 			"email": email, "name": "Owner", "password": "password123",
 		}).decode(t, &auth)
 		c.token = auth.Token
+		var me struct {
+			Today string `json:"today"`
+		}
 		c.mustStatus(http.StatusOK, "PUT", "/api/auth/me", map[string]any{
 			"name": "Owner", "currency": "USD", "deposit_return_days": 30, "time_zone": zone,
-		})
+		}).decode(t, &me)
+		wantToday := "2026-03-31"
+		if zone == "Pacific/Auckland" {
+			wantToday = "2026-04-01"
+		}
+		if me.Today != wantToday {
+			t.Errorf("%s: today = %q, want %s", zone, me.Today, wantToday)
+		}
 		var prop, unit, tenant, lease idOnly
 		c.mustStatus(http.StatusCreated, "POST", "/api/properties", map[string]any{
 			"name": "Kauri", "kind": "condo", "address_line1": "1 Queen St", "city": "Auckland",

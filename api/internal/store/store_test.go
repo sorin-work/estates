@@ -567,3 +567,14 @@ func TestTimeZones(t *testing.T) {
 		t.Errorf("zones %v", zones)
 	}
 }
+
+func TestTimeZoneCannotBeEmpty(t *testing.T) {
+	st := store.New(testdb.New(t))
+	u, err := st.CreateUser(ctx, "owner@example.com", "Owner", "hash")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.UpdateUser(ctx, u.ID, store.UserSettings{Name: "Owner", Currency: "USD", DepositReturnDays: 30}); err == nil {
+		t.Error("an empty time zone was saved")
+	}
+}

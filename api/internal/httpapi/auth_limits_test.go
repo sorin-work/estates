@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"strings"
 	"testing"
 	"time"
 )
@@ -33,24 +34,25 @@ func login(email, password string) map[string]string {
 	return map[string]string{"email": email, "password": password}
 }
 
-func TestLoginLimitedByEmail(t *testing.T) {
+func TestLoginLimitedByEmailAndAddress(t *testing.T) {
 	srv, c := newTestServer(t, newFakeStore())
 	clock := newFakeClock()
-	srv.limits.loginByEmail.now = clock.now
+	srv.limits.loginByPair.now = clock.now
+	srv.limits.failuresByEmail.now = clock.now
 	c.mustStatus(http.StatusCreated, "POST", "/api/auth/register", map[string]string{
 		"email": "owner@example.com", "name": "Owner", "password": "password123",
 	})
 
-	for i := range failuresPerEmail {
-		// Each failure from a different address: the email is what counts.
-		res := post(t, c.handler, "/api/auth/login", "203.0.113."+itoa(int64(i+1))+":1", "", login("Owner@example.com", "wrong"))
+	const attacker = "203.0.113.66:1"
+	for i := range failuresPerPair {
+		res := post(t, c.handler, "/api/auth/login", attacker, "", login("Owner@example.com", "wrong"))
 		if res.Status != http.StatusUnauthorized {
 			t.Fatalf("failure %d: status %d", i+1, res.Status)
 		}
 	}
-	res := post(t, c.handler, "/api/auth/login", "203.0.113.50:1", "", login("owner@example.com", "password123"))
+	res := post(t, c.handler, "/api/auth/login", attacker, "", login("owner@example.com", "password123"))
 	if res.Status != http.StatusTooManyRequests || res.errorCode(t) != "too_many_attempts" {
-		t.Fatalf("right password while limited: %d %s", res.Status, res.Body)
+		t.Fatalf("right password from the limited address: %d %s", res.Status, res.Body)
 	}
 	if got := res.Header.Get("Retry-After"); got != "180" {
 		t.Errorf("Retry-After = %q, want 180", got)
@@ -58,17 +60,83 @@ func TestLoginLimitedByEmail(t *testing.T) {
 
 	// An unknown email is limited the same way, so the limit does not tell
 	// which accounts exist.
-	for range failuresPerEmail {
-		post(t, c.handler, "/api/auth/login", "203.0.113.60:1", "", login("nobody@example.com", "wrong"))
+	for range failuresPerPair {
+		post(t, c.handler, "/api/auth/login", attacker, "", login("nobody@example.com", "wrong"))
 	}
-	if res := post(t, c.handler, "/api/auth/login", "203.0.113.61:1", "", login("nobody@example.com", "wrong")); res.Status != http.StatusTooManyRequests {
+	if res := post(t, c.handler, "/api/auth/login", attacker, "", login("nobody@example.com", "wrong")); res.Status != http.StatusTooManyRequests {
 		t.Errorf("unknown email: status %d, want 429", res.Status)
 	}
 
-	clock.add(emailWindow / failuresPerEmail)
-	res = post(t, c.handler, "/api/auth/login", "203.0.113.50:1", "", login("owner@example.com", "password123"))
+	clock.add(failureWindow / failuresPerPair)
+	res = post(t, c.handler, "/api/auth/login", attacker, "", login("owner@example.com", "password123"))
 	if res.Status != http.StatusOK {
 		t.Fatalf("after waiting: %d %s", res.Status, res.Body)
+	}
+}
+
+// Someone guessing the owner's password, slowly enough to stay under the
+// limit forever, must never stop the owner signing in from elsewhere.
+func TestGuessingDoesNotLockTheOwnerOut(t *testing.T) {
+	srv, c := newTestServer(t, newFakeStore())
+	clock := newFakeClock()
+	srv.limits.loginByPair.now = clock.now
+	srv.limits.failuresByEmail.now = clock.now
+	srv.limits.loginByAddress.now = clock.now
+	c.mustStatus(http.StatusCreated, "POST", "/api/auth/register", map[string]string{
+		"email": "owner@example.com", "name": "Owner", "password": "password123",
+	})
+
+	for i := range 60 {
+		// Many attacker addresses, to use up the email-wide count too.
+		attacker := "203.0.113." + itoa(int64(i%10+1)) + ":1"
+		post(t, c.handler, "/api/auth/login", attacker, "", login("owner@example.com", "guess"+itoa(int64(i))))
+		if i%10 == 9 {
+			clock.add(time.Minute)
+		}
+		owner := "198.51.100." + itoa(int64(i+1)) + ":1"
+		if i%5 == 4 {
+			res := post(t, c.handler, "/api/auth/login", owner, "", login("owner@example.com", "password123"))
+			if res.Status != http.StatusOK {
+				t.Fatalf("owner refused after %d guesses: %d %s", i+1, res.Status, res.Body)
+			}
+		}
+	}
+}
+
+func TestManyFailuresCutNewAddressesToOneTry(t *testing.T) {
+	srv, c := newTestServer(t, newFakeStore())
+	clock := newFakeClock()
+	srv.limits.loginByPair.now = clock.now
+	srv.limits.failuresByEmail.now = clock.now
+	for i := range failuresPerEmail {
+		post(t, c.handler, "/api/auth/login", "203.0.113."+itoa(int64(i+1))+":1", "", login("owner@example.com", "wrong"))
+	}
+	fresh := "198.51.100.9:1"
+	if res := post(t, c.handler, "/api/auth/login", fresh, "", login("owner@example.com", "wrong")); res.Status != http.StatusUnauthorized {
+		t.Fatalf("first try from a new address: %d", res.Status)
+	}
+	if res := post(t, c.handler, "/api/auth/login", fresh, "", login("owner@example.com", "wrong")); res.Status != http.StatusTooManyRequests {
+		t.Fatalf("second try from a new address: %d, want 429", res.Status)
+	}
+	// Other emails are not affected.
+	for range failuresPerPair {
+		if res := post(t, c.handler, "/api/auth/login", fresh, "", login("other@example.com", "wrong")); res.Status != http.StatusUnauthorized {
+			t.Fatalf("other email: %d", res.Status)
+		}
+	}
+}
+
+func TestLoginRefusesHugeInput(t *testing.T) {
+	srv, c := newTestServer(t, newFakeStore())
+	long := strings.Repeat("a", 300) + "@example.com"
+	if res := c.do("POST", "/api/auth/login", login(long, "x")); res.Status != http.StatusUnauthorized {
+		t.Errorf("long email: %d, want 401", res.Status)
+	}
+	if res := c.do("POST", "/api/auth/login", login(strings.Repeat("a", 8000)+"@example.com", "x")); res.Status != http.StatusBadRequest {
+		t.Errorf("large body: %d, want 400", res.Status)
+	}
+	if n := srv.limits.loginByPair.size(); n != 0 {
+		t.Errorf("%d buckets kept for rejected emails", n)
 	}
 }
 
@@ -78,7 +146,7 @@ func TestLoginSuccessClearsFailures(t *testing.T) {
 		"email": "owner@example.com", "name": "Owner", "password": "password123",
 	})
 	for range 3 {
-		for range failuresPerEmail - 1 {
+		for range failuresPerPair - 1 {
 			c.mustStatus(http.StatusUnauthorized, "POST", "/api/auth/login", login("owner@example.com", "wrong"))
 		}
 		c.mustStatus(http.StatusOK, "POST", "/api/auth/login", login("owner@example.com", "password123"))

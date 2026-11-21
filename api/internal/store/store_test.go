@@ -522,3 +522,28 @@ func TestHasUsers(t *testing.T) {
 		t.Fatalf("after sign-up: HasUsers = %v, %v", ok, err)
 	}
 }
+
+func TestCreateFirstUserOnlyOnce(t *testing.T) {
+	st := store.New(testdb.New(t))
+	const n = 8
+	errs := make(chan error, n)
+	for i := range n {
+		go func() {
+			_, err := st.CreateFirstUser(ctx, "owner"+string(rune('a'+i))+"@example.com", "Owner", "hash")
+			errs <- err
+		}()
+	}
+	created := 0
+	for range n {
+		err := <-errs
+		switch {
+		case err == nil:
+			created++
+		case !errors.Is(err, store.ErrNotFirstUser):
+			t.Errorf("unexpected error %v", err)
+		}
+	}
+	if created != 1 {
+		t.Fatalf("%d accounts created, want 1", created)
+	}
+}

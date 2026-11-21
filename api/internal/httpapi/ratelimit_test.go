@@ -113,3 +113,50 @@ func TestWaitText(t *testing.T) {
 		t.Error("15 minutes")
 	}
 }
+
+func TestLimiterKeepsAtMostMaxKeys(t *testing.T) {
+	clock := newFakeClock()
+	l := withClock(newLimiter(5, time.Minute), clock)
+	l.maxKeys = 3
+	for _, k := range []string{"a", "b", "c"} {
+		l.take(k)
+		clock.add(time.Second)
+	}
+	l.take("d")
+	if n := l.size(); n != 3 {
+		t.Fatalf("size = %d, want 3", n)
+	}
+	l.mu.Lock()
+	_, hasA := l.buckets["a"]
+	_, hasD := l.buckets["d"]
+	l.mu.Unlock()
+	if hasA || !hasD {
+		t.Errorf("the oldest key should go: a kept %v, d kept %v", hasA, hasD)
+	}
+}
+
+func TestLimiterStartAndHas(t *testing.T) {
+	clock := newFakeClock()
+	l := withClock(newLimiter(5, 15*time.Minute), clock)
+	if !l.has("new") {
+		t.Error("an unknown key has attempts")
+	}
+	if ok, _ := l.takeFrom("x", 1); !ok {
+		t.Fatal("first attempt refused")
+	}
+	if ok, _ := l.takeFrom("x", 1); ok {
+		t.Error("a key started with one attempt allowed two")
+	}
+	if l.has("x") {
+		t.Error("has reports an attempt left")
+	}
+}
+
+func TestLimitKey(t *testing.T) {
+	if limitKey("ab", "c") == limitKey("a", "bc") {
+		t.Error("parts run together")
+	}
+	if len(limitKey(strings.Repeat("x", 10000))) != 16 {
+		t.Error("key is not fixed size")
+	}
+}

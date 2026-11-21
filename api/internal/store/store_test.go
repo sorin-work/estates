@@ -547,3 +547,23 @@ func TestCreateFirstUserOnlyOnce(t *testing.T) {
 		t.Fatalf("%d accounts created, want 1", created)
 	}
 }
+
+func TestTimeZones(t *testing.T) {
+	st := store.New(testdb.New(t))
+	for i, zone := range []string{"Europe/Bucharest", "UTC", "Europe/Bucharest"} {
+		u, err := st.CreateUser(ctx, string(rune('a'+i))+"@example.com", "Owner", "hash")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := st.UpdateUser(ctx, u.ID, store.UserSettings{Name: "Owner", Currency: "USD", DepositReturnDays: 30, TimeZone: zone}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	zones, err := st.TimeZones(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(zones) != 2 || zones[0] != "Europe/Bucharest" || zones[1] != "UTC" {
+		t.Errorf("zones %v", zones)
+	}
+}

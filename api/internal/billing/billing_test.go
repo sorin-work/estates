@@ -5,6 +5,7 @@ import (
 	"io"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/sorin-work/estates/api/internal/billing"
 	"github.com/sorin-work/estates/api/internal/domain"
@@ -121,5 +122,60 @@ func TestBalancesShowTheRentInForce(t *testing.T) {
 	}
 	if len(balances) != 1 || balances[0].Lease.CurrentRentCents != 103000 {
 		t.Errorf("balances %+v", balances)
+	}
+}
+
+// One run at 23:30 UTC on 31 March: April rent is due for the landlord in
+// Auckland, where it is already 1 April, and not yet for the one in UTC.
+func TestRunOnceBillsEachTimeZoneOnItsOwnDate(t *testing.T) {
+	ctx := context.Background()
+	st := store.New(testdb.New(t))
+	svc := billing.New(st, slog.New(slog.NewTextHandler(io.Discard, nil)))
+
+	type ownerLease struct{ owner, lease string }
+	leases := map[string]ownerLease{}
+	for _, zone := range []string{"Pacific/Auckland", "UTC"} {
+		u, err := st.CreateUser(ctx, zone+"@example.com", "Owner", "hash")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := st.UpdateUser(ctx, u.ID, store.UserSettings{Name: "Owner", Currency: "USD", DepositReturnDays: 30, TimeZone: zone}); err != nil {
+			t.Fatal(err)
+		}
+		p, _ := st.CreateProperty(ctx, u.ID, store.PropertyInput{Name: "P", Kind: "condo", AddressLine1: "1 Main", City: "Bend"})
+		unit, _ := st.CreateUnit(ctx, u.ID, p, store.UnitInput{Label: "1"})
+		tenant, _ := st.CreateTenant(ctx, u.ID, store.TenantInput{FirstName: "T", LastName: "T"})
+		id, err := st.CreateLease(ctx, u.ID, store.LeaseInput{
+			UnitID: unit, TenantID: tenant, StartDate: domain.MustParseDate("2026-03-01"), EndDate: domain.MustParseDate("2027-02-28"),
+			RentCents: 100000, DueDay: 1, GraceDays: 5,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		leases[zone] = ownerLease{u.ID, id}
+	}
+
+	res, err := svc.RunOnce(ctx, time.Date(2026, 3, 31, 23, 30, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// March for both, April only in Auckland.
+	if res.Rent != 3 {
+		t.Errorf("result %+v, want 3 rent charges", res)
+	}
+
+	count := func(zone string) int {
+		ol := leases[zone]
+		entries, err := st.LedgerEntries(ctx, ol.owner, ol.lease)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(entries[ol.lease].Charges)
+	}
+	if n := count("Pacific/Auckland"); n != 2 {
+		t.Errorf("Auckland has %d charges, want 2", n)
+	}
+	if n := count("UTC"); n != 1 {
+		t.Errorf("UTC has %d charges, want 1", n)
 	}
 }

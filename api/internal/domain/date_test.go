@@ -87,3 +87,34 @@ func TestDateJSON(t *testing.T) {
 		t.Error("expected an error for a badly formatted date")
 	}
 }
+
+func TestTodayIn(t *testing.T) {
+	now := time.Date(2026, 3, 31, 23, 30, 0, 0, time.UTC)
+	for zone, want := range map[string]string{
+		"UTC":                 "2026-03-31",
+		"Pacific/Auckland":    "2026-04-01",
+		"America/Los_Angeles": "2026-03-31",
+		"Asia/Tokyo":          "2026-04-01",
+	} {
+		loc, err := LoadZone(zone)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := TodayIn(now, loc).String(); got != want {
+			t.Errorf("%s: %s, want %s", zone, got, want)
+		}
+	}
+	// Just after midnight in Los Angeles it is morning in UTC.
+	la, _ := LoadZone("America/Los_Angeles")
+	if got := TodayIn(time.Date(2026, 4, 1, 7, 30, 0, 0, time.UTC), la).String(); got != "2026-04-01" {
+		t.Errorf("Los Angeles after midnight: %s", got)
+	}
+}
+
+func TestLoadZoneRefusesServerZone(t *testing.T) {
+	for _, name := range []string{"", "Local", "Mars/Olympus", "../etc/passwd"} {
+		if _, err := LoadZone(name); err == nil {
+			t.Errorf("%q accepted", name)
+		}
+	}
+}

@@ -45,9 +45,10 @@ func (s *Server) chargeRoutes(r chi.Router) {
 	r.Delete("/{id}", s.handle(s.deleteCharge))
 }
 
-func (s *Server) withStatus(l store.Lease) store.Lease {
-	l.Status = domain.LeaseStatus(l.StartDate, l.EndDate, l.TerminatedOn, s.today())
-	l.CurrentRentCents = l.Terms().RentOn(s.today())
+// withStatus fills in the status and rent on today.
+func withStatus(l store.Lease, today domain.Date) store.Lease {
+	l.Status = domain.LeaseStatus(l.StartDate, l.EndDate, l.TerminatedOn, today)
+	l.CurrentRentCents = l.Terms().RentOn(today)
 	return l
 }
 
@@ -74,7 +75,7 @@ func (s *Server) listLeases(w http.ResponseWriter, r *http.Request) error {
 	}
 	out := make([]store.Lease, 0, len(leases))
 	for _, l := range leases {
-		l = s.withStatus(l)
+		l = withStatus(l, s.today(r))
 		if status == "" || l.Status == status {
 			out = append(out, l)
 		}
@@ -92,7 +93,7 @@ func (s *Server) loadLease(r *http.Request) (store.Lease, error) {
 	if err != nil {
 		return store.Lease{}, notFoundAs(err, "lease")
 	}
-	return s.withStatus(l), nil
+	return withStatus(l, s.today(r)), nil
 }
 
 func (s *Server) getLease(w http.ResponseWriter, r *http.Request) error {
@@ -133,15 +134,16 @@ func decodeLease(w http.ResponseWriter, r *http.Request) (store.LeaseInput, erro
 
 // billNow generates the rent a lease is due so far, so a new or edited lease
 // shows the right balance without waiting for the background job.
-func (s *Server) billNow(ctx context.Context, ownerID, leaseID string) (store.Lease, error) {
-	l, err := s.store.GetLease(ctx, ownerID, leaseID)
+func (s *Server) billNow(r *http.Request, leaseID string) (store.Lease, error) {
+	ctx, today := r.Context(), s.today(r)
+	l, err := s.store.GetLease(ctx, userID(r), leaseID)
 	if err != nil {
 		return store.Lease{}, err
 	}
-	if _, err := s.billing.GenerateRent(ctx, l, s.today()); err != nil {
+	if _, err := s.billing.GenerateRent(ctx, l, today); err != nil {
 		return store.Lease{}, err
 	}
-	return s.withStatus(l), nil
+	return withStatus(l, today), nil
 }
 
 func (s *Server) createLease(w http.ResponseWriter, r *http.Request) error {
@@ -153,7 +155,7 @@ func (s *Server) createLease(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	l, err := s.billNow(r.Context(), userID(r), id)
+	l, err := s.billNow(r, id)
 	if err != nil {
 		return err
 	}
@@ -174,7 +176,7 @@ func (s *Server) updateLease(w http.ResponseWriter, r *http.Request) error {
 	if err := s.store.UpdateLease(r.Context(), userID(r), id, in); err != nil {
 		return notFoundAs(err, "lease")
 	}
-	l, err := s.billNow(r.Context(), userID(r), id)
+	l, err := s.billNow(r, id)
 	if err != nil {
 		return err
 	}
@@ -204,7 +206,7 @@ func (s *Server) terminateLease(w http.ResponseWriter, r *http.Request) error {
 	}
 	// Moving the termination later brings back rent for the months in
 	// between, so bill straight away like any other change to the dates.
-	l, err := s.billNow(r.Context(), userID(r), id)
+	l, err := s.billNow(r, id)
 	if err != nil {
 		return err
 	}
@@ -274,7 +276,7 @@ func (s *Server) leaseLedger(w http.ResponseWriter, r *http.Request) error {
 		pays[i] = domain.LedgerPayment{ID: p.ID, PaidOn: p.PaidOn, AmountCents: p.AmountCents}
 	}
 
-	asOf := s.today()
+	asOf := s.today(r)
 	ledger := domain.BuildLedger(in, pays, l.GraceDays, asOf)
 	resp := ledgerResponse{
 		AsOf:         asOf,

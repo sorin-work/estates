@@ -52,7 +52,7 @@ func (s *Server) paymentReceipt(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	prop, err := s.store.GetProperty(ctx, owner, l.PropertyID, s.today())
+	prop, err := s.store.GetProperty(ctx, owner, l.PropertyID, s.today(r))
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func (s *Server) paymentReceipt(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	resp := receiptResponse{Number: p.ReceiptNumber, IssuedOn: s.today(), Payment: p}
+	resp := receiptResponse{Number: p.ReceiptNumber, IssuedOn: s.today(r), Payment: p}
 	resp.Landlord = receiptParty{Name: landlord.Name, Email: landlord.Email}
 	resp.Tenant = receiptParty{Name: tenant.FirstName + " " + tenant.LastName, Email: tenant.Email, Phone: tenant.Phone}
 	resp.Property.Name = prop.Name

@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/sorin-work/estates/api/internal/domain"
 	"github.com/sorin-work/estates/api/internal/store"
 )
 
@@ -86,7 +87,10 @@ func (s *Server) cors(next http.Handler) http.Handler {
 
 type ctxKey int
 
-const userIDKey ctxKey = iota
+const (
+	userIDKey ctxKey = iota
+	userLocationKey
+)
 
 // requireAuth rejects requests without a valid bearer token, or with one
 // from before the user last changed their password, and stores the user ID
@@ -114,8 +118,23 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 			writeError(w, http.StatusInternalServerError, "internal", "something went wrong")
 			return
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userIDKey, userID)))
+		loc, err := domain.LoadZone(u.TimeZone)
+		if err != nil {
+			loc = time.UTC
+		}
+		ctx := context.WithValue(r.Context(), userIDKey, userID)
+		ctx = context.WithValue(ctx, userLocationKey, loc)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// userLocation returns the signed in user's time zone, or UTC outside
+// requireAuth.
+func userLocation(r *http.Request) *time.Location {
+	if loc, ok := r.Context().Value(userLocationKey).(*time.Location); ok {
+		return loc
+	}
+	return time.UTC
 }
 
 // userID returns the authenticated user's ID. It must only be called behind

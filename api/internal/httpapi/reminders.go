@@ -41,6 +41,6 @@ func (s *Server) reminders(w http.ResponseWriter, r *http.Request) error {
 		jobs[i] = domain.MaintenanceFacts{ID: m.ID, Title: m.Title, Priority: m.Priority, Status: m.Status, ReportedOn: m.ReportedOn}
 	}
 
-	writeJSON(w, http.StatusOK, domain.Reminders(s.today(), facts, jobs, u.DepositReturnDays))
+	writeJSON(w, http.StatusOK, domain.Reminders(s.today(r), facts, jobs, u.DepositReturnDays))
 	return nil
 }

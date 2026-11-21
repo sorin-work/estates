@@ -41,7 +41,7 @@ func (s *Server) reportPeriod(r *http.Request) (domain.Date, domain.Date, error)
 	if err != nil {
 		return from, to, err
 	}
-	today := s.today()
+	today := s.today(r)
 	if to.IsZero() {
 		to = today
 	}

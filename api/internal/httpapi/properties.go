@@ -30,7 +30,7 @@ func (s *Server) propertyRoutes(r chi.Router) {
 }
 
 func (s *Server) listProperties(w http.ResponseWriter, r *http.Request) error {
-	props, err := s.store.ListProperties(r.Context(), userID(r), s.today())
+	props, err := s.store.ListProperties(r.Context(), userID(r), s.today(r))
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func (s *Server) getProperty(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	p, err := s.store.GetProperty(r.Context(), userID(r), id, s.today())
+	p, err := s.store.GetProperty(r.Context(), userID(r), id, s.today(r))
 	if err != nil {
 		return notFoundAs(err, "property")
 	}
@@ -81,7 +81,7 @@ func (s *Server) createProperty(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	p, err := s.store.GetProperty(r.Context(), userID(r), id, s.today())
+	p, err := s.store.GetProperty(r.Context(), userID(r), id, s.today(r))
 	if err != nil {
 		return err
 	}
@@ -102,7 +102,7 @@ func (s *Server) updateProperty(w http.ResponseWriter, r *http.Request) error {
 	if err := s.store.UpdateProperty(r.Context(), userID(r), id, in); err != nil {
 		return notFoundAs(err, "property")
 	}
-	p, err := s.store.GetProperty(r.Context(), userID(r), id, s.today())
+	p, err := s.store.GetProperty(r.Context(), userID(r), id, s.today(r))
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func (s *Server) deleteProperty(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	p, err := s.store.GetProperty(r.Context(), userID(r), id, s.today())
+	p, err := s.store.GetProperty(r.Context(), userID(r), id, s.today(r))
 	if err != nil {
 		return notFoundAs(err, "property")
 	}

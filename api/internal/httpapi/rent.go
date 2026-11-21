@@ -17,7 +17,7 @@ func (s *Server) rentRoutes(r chi.Router) {
 // rentBalances is the rent roll: every active lease, plus ended ones that
 // still owe money. ?overdue=true limits it to leases with overdue rent.
 func (s *Server) rentBalances(w http.ResponseWriter, r *http.Request) error {
-	balances, err := s.billing.Balances(r.Context(), userID(r), s.today())
+	balances, err := s.billing.Balances(r.Context(), userID(r), s.today(r))
 	if err != nil {
 		return err
 	}
@@ -35,7 +35,7 @@ func (s *Server) rentBalances(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (s *Server) runBilling(w http.ResponseWriter, r *http.Request) error {
-	res, err := s.billing.BillOwner(r.Context(), userID(r), s.today())
+	res, err := s.billing.BillOwner(r.Context(), userID(r), s.today(r))
 	if err != nil {
 		return err
 	}
@@ -45,7 +45,7 @@ func (s *Server) runBilling(w http.ResponseWriter, r *http.Request) error {
 
 // rentBalancesCSV is the rent roll as a spreadsheet.
 func (s *Server) rentBalancesCSV(w http.ResponseWriter, r *http.Request) error {
-	today := s.today()
+	today := s.today(r)
 	balances, err := s.billing.Balances(r.Context(), userID(r), today)
 	if err != nil {
 		return err

@@ -11,6 +11,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	// The zone database inside the binary, so landlords' time zones work
+	// on machines without tzdata.
+	_ "time/tzdata"
 
 	"github.com/sorin-work/estates/api/internal/auth"
 	"github.com/sorin-work/estates/api/internal/billing"

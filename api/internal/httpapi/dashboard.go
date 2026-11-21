@@ -50,7 +50,7 @@ type dashboardResponse struct {
 func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) error {
 	ctx := r.Context()
 	owner := userID(r)
-	today := s.today()
+	today := s.today(r)
 
 	var resp dashboardResponse
 	resp.AsOf = today
@@ -108,7 +108,7 @@ func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 	for i := range expiring {
-		expiring[i] = s.withStatus(expiring[i])
+		expiring[i] = withStatus(expiring[i], today)
 	}
 	resp.ExpiringLeases = expiring
 

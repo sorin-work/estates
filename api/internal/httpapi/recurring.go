@@ -33,8 +33,8 @@ type recurringView struct {
 	NextOn *domain.Date `json:"next_on"`
 }
 
-func (s *Server) viewRecurring(r store.RecurringExpense) recurringView {
-	after := s.today()
+func viewRecurring(r store.RecurringExpense, today domain.Date) recurringView {
+	after := today
 	if r.GeneratedThrough != nil && r.GeneratedThrough.After(after) {
 		after = *r.GeneratedThrough
 	}
@@ -56,7 +56,7 @@ func (s *Server) listRecurring(w http.ResponseWriter, r *http.Request) error {
 	}
 	out := make([]recurringView, len(list))
 	for i, re := range list {
-		out[i] = s.viewRecurring(re)
+		out[i] = viewRecurring(re, s.today(r))
 	}
 	writeJSON(w, http.StatusOK, out)
 	return nil
@@ -71,7 +71,7 @@ func (s *Server) getRecurring(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return notFoundAs(err, "recurring expense")
 	}
-	writeJSON(w, http.StatusOK, s.viewRecurring(re))
+	writeJSON(w, http.StatusOK, viewRecurring(re, s.today(r)))
 	return nil
 }
 
@@ -106,19 +106,20 @@ func decodeRecurring(w http.ResponseWriter, r *http.Request) (store.RecurringExp
 
 // generateRecurring creates the expenses that are already due, so a new
 // recurring expense shows up in the expense list straight away.
-func (s *Server) generateRecurring(ctx context.Context, ownerID, id string) (recurringView, error) {
+func (s *Server) generateRecurring(r *http.Request, id string) (recurringView, error) {
+	ctx, ownerID, today := r.Context(), userID(r), s.today(r)
 	re, err := s.store.GetRecurringExpense(ctx, ownerID, id)
 	if err != nil {
 		return recurringView{}, err
 	}
-	if _, err := s.billing.GenerateRecurring(ctx, re, s.today()); err != nil {
+	if _, err := s.billing.GenerateRecurring(ctx, re, today); err != nil {
 		return recurringView{}, err
 	}
 	re, err = s.store.GetRecurringExpense(ctx, ownerID, id)
 	if err != nil {
 		return recurringView{}, err
 	}
-	return s.viewRecurring(re), nil
+	return viewRecurring(re, today), nil
 }
 
 func (s *Server) createRecurring(w http.ResponseWriter, r *http.Request) error {
@@ -130,7 +131,7 @@ func (s *Server) createRecurring(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	v, err := s.generateRecurring(r.Context(), userID(r), id)
+	v, err := s.generateRecurring(r, id)
 	if err != nil {
 		return err
 	}
@@ -150,7 +151,7 @@ func (s *Server) updateRecurring(w http.ResponseWriter, r *http.Request) error {
 	if err := s.store.UpdateRecurringExpense(r.Context(), userID(r), id, in); err != nil {
 		return notFoundAs(err, "recurring expense")
 	}
-	v, err := s.generateRecurring(r.Context(), userID(r), id)
+	v, err := s.generateRecurring(r, id)
 	if err != nil {
 		return err
 	}

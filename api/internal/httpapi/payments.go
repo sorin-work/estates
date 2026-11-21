@@ -87,7 +87,7 @@ func (s *Server) decodePayment(w http.ResponseWriter, r *http.Request) (store.Pa
 	var v validator
 	v.check(in.AmountCents > 0, "amount_cents", "must be more than zero")
 	v.check(!in.PaidOn.IsZero(), "paid_on", "is required")
-	v.check(!in.PaidOn.After(s.today()), "paid_on", "cannot be in the future")
+	v.check(!in.PaidOn.After(s.today(r)), "paid_on", "cannot be in the future")
 	v.check(domain.OneOf(in.Method, domain.PaymentMethods), "method", "is not a known payment method")
 	v.maxLen(in.Reference, "reference", 100)
 	v.maxLen(in.Notes, "notes", 1000)

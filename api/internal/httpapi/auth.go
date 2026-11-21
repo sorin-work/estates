@@ -197,13 +197,21 @@ func (s *Server) me(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-// updateMe changes the signed in user's name and display currency.
+// updateMe changes the signed in user's name, display currency, deposit
+// deadline and time zone. A missing time zone keeps the saved one.
 func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) error {
 	var in store.UserSettings
 	if err := decode(w, r, &in); err != nil {
 		return err
 	}
-	trim(&in.Name, &in.Currency)
+	trim(&in.Name, &in.Currency, &in.TimeZone)
+	if in.TimeZone == "" {
+		u, err := s.store.UserByID(r.Context(), userID(r))
+		if err != nil {
+			return err
+		}
+		in.TimeZone = u.TimeZone
+	}
 	in.Currency = strings.ToUpper(in.Currency)
 	if in.Currency == "" {
 		in.Currency = "USD"
@@ -217,6 +225,8 @@ func (s *Server) updateMe(w http.ResponseWriter, r *http.Request) error {
 	v.maxLen(in.Name, "name", 100)
 	v.check(domain.OneOf(in.Currency, domain.Currencies), "currency", "is not a supported currency")
 	v.check(in.DepositReturnDays >= 1 && in.DepositReturnDays <= 90, "deposit_return_days", "must be between 1 and 90")
+	_, zoneErr := domain.LoadZone(in.TimeZone)
+	v.check(zoneErr == nil, "time_zone", "is not a known time zone")
 	if err := v.err(); err != nil {
 		return err
 	}

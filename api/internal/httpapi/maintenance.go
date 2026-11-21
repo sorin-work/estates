@@ -99,7 +99,7 @@ func (s *Server) decodeMaintenance(w http.ResponseWriter, r *http.Request) (stor
 		in.Priority = "normal"
 	}
 	if in.ReportedOn.IsZero() {
-		in.ReportedOn = s.today()
+		in.ReportedOn = s.today(r)
 	}
 
 	var v validator
@@ -188,7 +188,7 @@ func (s *Server) setMaintenanceStatus(w http.ResponseWriter, r *http.Request) er
 
 	var completedOn *domain.Date
 	if in.Status == domain.MaintenanceCompleted {
-		today := s.today()
+		today := s.today(r)
 		completedOn = &today
 	}
 	if err := s.store.SetMaintenanceStatus(r.Context(), userID(r), id, in.Status, completedOn); err != nil {

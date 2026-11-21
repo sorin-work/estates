@@ -31,7 +31,7 @@ func (s *Server) listUnits(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	units, err := s.store.ListUnits(r.Context(), userID(r), propertyID, s.today())
+	units, err := s.store.ListUnits(r.Context(), userID(r), propertyID, s.today(r))
 	if err != nil {
 		return err
 	}
@@ -44,10 +44,10 @@ func (s *Server) listPropertyUnits(w http.ResponseWriter, r *http.Request) error
 	if err != nil {
 		return err
 	}
-	if _, err := s.store.GetProperty(r.Context(), userID(r), id, s.today()); err != nil {
+	if _, err := s.store.GetProperty(r.Context(), userID(r), id, s.today(r)); err != nil {
 		return notFoundAs(err, "property")
 	}
-	units, err := s.store.ListUnits(r.Context(), userID(r), id, s.today())
+	units, err := s.store.ListUnits(r.Context(), userID(r), id, s.today(r))
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func (s *Server) getUnit(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	u, err := s.store.GetUnit(r.Context(), userID(r), id, s.today())
+	u, err := s.store.GetUnit(r.Context(), userID(r), id, s.today(r))
 	if err != nil {
 		return notFoundAs(err, "unit")
 	}
@@ -99,7 +99,7 @@ func (s *Server) createUnit(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return notFoundAs(err, "property")
 	}
-	u, err := s.store.GetUnit(r.Context(), userID(r), id, s.today())
+	u, err := s.store.GetUnit(r.Context(), userID(r), id, s.today(r))
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (s *Server) updateUnit(w http.ResponseWriter, r *http.Request) error {
 	if err := s.store.UpdateUnit(r.Context(), userID(r), id, in); err != nil {
 		return notFoundAs(err, "unit")
 	}
-	u, err := s.store.GetUnit(r.Context(), userID(r), id, s.today())
+	u, err := s.store.GetUnit(r.Context(), userID(r), id, s.today(r))
 	if err != nil {
 		return err
 	}

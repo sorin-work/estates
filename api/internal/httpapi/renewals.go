@@ -42,7 +42,7 @@ func (s *Server) addRentChange(w http.ResponseWriter, r *http.Request) error {
 	if _, err := s.store.AddRentChange(r.Context(), userID(r), id, in); err != nil {
 		return notFoundAs(err, "lease")
 	}
-	l, err := s.billNow(r.Context(), userID(r), id)
+	l, err := s.billNow(r, id)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (s *Server) renewLease(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return notFoundAs(err, "lease")
 	}
-	l, err := s.billNow(r.Context(), userID(r), newID)
+	l, err := s.billNow(r, newID)
 	if err != nil {
 		return err
 	}

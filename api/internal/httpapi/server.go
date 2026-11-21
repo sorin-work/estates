@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -58,8 +59,10 @@ type Server struct {
 	// trustedProxies may set X-Forwarded-For.
 	trustedProxies []netip.Prefix
 	limits         authLimits
-	// today returns the current date; tests replace it.
-	today func() domain.Date
+	// fixedToday, when set, is "today" for everyone; tests use it.
+	fixedToday func() domain.Date
+	// now is the current time; tests replace it.
+	now func() time.Time
 }
 
 type Options struct {
@@ -73,7 +76,10 @@ type Options struct {
 	// TrustedProxies are the addresses whose X-Forwarded-For header is
 	// believed when working out who is signing in.
 	TrustedProxies []netip.Prefix
-	Today          func() domain.Date
+	// Today fixes the date for every user, ignoring their time zone.
+	Today func() domain.Date
+	// Now replaces the clock. "Today" is its date in the user's time zone.
+	Now func() time.Time
 }
 
 func New(o Options) *Server {
@@ -83,7 +89,8 @@ func New(o Options) *Server {
 		tokens:      o.Tokens,
 		log:         o.Logger,
 		corsOrigins: o.CORSOrigins,
-		today:       o.Today,
+		fixedToday:  o.Today,
+		now:         o.Now,
 
 		closeRegistration: o.CloseRegistration,
 		trustedProxies:    o.TrustedProxies,
@@ -92,8 +99,8 @@ func New(o Options) *Server {
 	if s.log == nil {
 		s.log = slog.Default()
 	}
-	if s.today == nil {
-		s.today = domain.Today
+	if s.now == nil {
+		s.now = time.Now
 	}
 	return s
 }
@@ -150,6 +157,14 @@ func (s *Server) Handler() http.Handler {
 		})
 	})
 	return r
+}
+
+// today is the current date for the signed in user, in their time zone.
+func (s *Server) today(r *http.Request) domain.Date {
+	if s.fixedToday != nil {
+		return s.fixedToday()
+	}
+	return domain.TodayIn(s.now(), userLocation(r))
 }
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {

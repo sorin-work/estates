@@ -75,7 +75,7 @@ func (s *Server) createDeposit(w http.ResponseWriter, r *http.Request) error {
 	v.check(domain.OneOf(in.Kind, domain.DepositKinds), "kind", "must be one of "+strings.Join(domain.DepositKinds, ", "))
 	v.check(in.AmountCents > 0, "amount_cents", "must be more than zero")
 	v.check(!in.OccurredOn.IsZero(), "occurred_on", "is required")
-	v.check(!in.OccurredOn.After(s.today()), "occurred_on", "cannot be in the future")
+	v.check(!in.OccurredOn.After(s.today(r)), "occurred_on", "cannot be in the future")
 	v.maxLen(in.Notes, "notes", 1000)
 	if err := v.err(); err != nil {
 		return err

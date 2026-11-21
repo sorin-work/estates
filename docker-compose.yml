@@ -57,6 +57,26 @@ services:
       timeout: 3s
       retries: 5
 
+  # Dumps the database into ./backups every BACKUP_INTERVAL. See
+  # docs/backups.md for restoring.
+  backup:
+    image: postgres:17-alpine
+    entrypoint: ['/bin/sh', '/usr/local/bin/backup.sh']
+    environment:
+      PGHOST: db
+      PGUSER: estates
+      PGPASSWORD: estates
+      PGDATABASE: estates
+      BACKUP_INTERVAL: ${BACKUP_INTERVAL:-24h}
+      BACKUP_KEEP: ${BACKUP_KEEP:-14}
+    volumes:
+      - ./scripts/backup.sh:/usr/local/bin/backup.sh:ro
+      - ${BACKUP_PATH:-./backups}:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
 # A fixed subnet so the web container has a known address for
 # TRUSTED_PROXIES. Change SUBNET and WEB_IP together if it clashes.
 networks:

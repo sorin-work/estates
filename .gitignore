@@ -152,3 +152,6 @@ vite.config.ts.timestamp-*
 api/bin/
 *.test
 *.out
+
+# Database dumps from the backup service
+backups/

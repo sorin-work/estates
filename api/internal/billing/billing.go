@@ -16,7 +16,8 @@ import (
 
 // Store is the subset of the data layer billing needs.
 type Store interface {
-	BillableLeases(ctx context.Context, asOf domain.Date, timeZone string) ([]store.Lease, error)
+	BillableLeases(ctx context.Context, asOf domain.Date) ([]store.Lease, error)
+	BillableLeasesInZone(ctx context.Context, asOf domain.Date, timeZone string) ([]store.Lease, error)
 	TimeZones(ctx context.Context) ([]string, error)
 	ListLeases(ctx context.Context, ownerID string, f store.LeaseFilter) ([]store.Lease, error)
 	LeaseOwner(ctx context.Context, leaseID string) (string, error)
@@ -24,7 +25,8 @@ type Store interface {
 	InsertLateFee(ctx context.Context, leaseID, rentChargeID string, amount int64, due domain.Date) (bool, error)
 	LateFeeParents(ctx context.Context, leaseID string) (map[string]bool, error)
 	LedgerEntries(ctx context.Context, ownerID, leaseID string) (map[string]*store.LedgerEntries, error)
-	DueRecurringExpenses(ctx context.Context, asOf domain.Date, timeZone string) ([]store.RecurringExpense, error)
+	DueRecurringExpenses(ctx context.Context, asOf domain.Date) ([]store.RecurringExpense, error)
+	DueRecurringExpensesInZone(ctx context.Context, asOf domain.Date, timeZone string) ([]store.RecurringExpense, error)
 	InsertRecurringOccurrences(ctx context.Context, r store.RecurringExpense, dates []domain.Date) (int, error)
 }
 
@@ -109,7 +111,13 @@ func (s *Service) BillAll(ctx context.Context, asOf domain.Date) (Result, error)
 
 // billZone is BillAll for the owners in one time zone, or all owners for "".
 func (s *Service) billZone(ctx context.Context, asOf domain.Date, timeZone string) (Result, error) {
-	leases, err := s.store.BillableLeases(ctx, asOf, timeZone)
+	var leases []store.Lease
+	var err error
+	if timeZone == "" {
+		leases, err = s.store.BillableLeases(ctx, asOf)
+	} else {
+		leases, err = s.store.BillableLeasesInZone(ctx, asOf, timeZone)
+	}
 	if err != nil {
 		return Result{}, err
 	}
@@ -171,7 +179,13 @@ func (s *Service) GenerateAllRecurring(ctx context.Context, asOf domain.Date) (i
 }
 
 func (s *Service) recurringZone(ctx context.Context, asOf domain.Date, timeZone string) (int, error) {
-	due, err := s.store.DueRecurringExpenses(ctx, asOf, timeZone)
+	var due []store.RecurringExpense
+	var err error
+	if timeZone == "" {
+		due, err = s.store.DueRecurringExpenses(ctx, asOf)
+	} else {
+		due, err = s.store.DueRecurringExpensesInZone(ctx, asOf, timeZone)
+	}
 	if err != nil {
 		return 0, err
 	}

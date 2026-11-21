@@ -116,12 +116,20 @@ func (s *Store) UpdateUser(ctx context.Context, id string, in UserSettings) erro
 }
 
 // SetPassword changes the password and bumps the token version, which signs
-// out every session. It returns the new version.
+// out every session, and uses up any open password reset links. It returns
+// the new version.
 func (s *Store) SetPassword(ctx context.Context, id, passwordHash string) (int, error) {
 	var version int
-	err := s.pool.QueryRow(ctx, `
-		UPDATE users SET password_hash = $2, token_version = token_version + 1, updated_at = now()
-		 WHERE id = $1
-		RETURNING token_version`, id, passwordHash).Scan(&version)
-	return version, notFound(err)
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		err := tx.QueryRow(ctx, `
+			UPDATE users SET password_hash = $2, token_version = token_version + 1, updated_at = now()
+			 WHERE id = $1
+			RETURNING token_version`, id, passwordHash).Scan(&version)
+		if err != nil {
+			return notFound(err)
+		}
+		_, err = tx.Exec(ctx, `UPDATE password_resets SET used_at = now() WHERE user_id = $1 AND used_at IS NULL`, id)
+		return err
+	})
+	return version, err
 }

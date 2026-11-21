@@ -75,7 +75,7 @@ heading at the top) are updated in the same pull request.
 | 18  | Cookie sessions instead of a stored token    | Later   | security      | M    | 17         |
 | 19  | Two-step sign-in with an authenticator app   | Later   | security      | M    | -          |
 | 20  | Email delivery and a weekly digest           | Later   | notifications | M    | -          |
-| 21  | Password reset by email                      | Later   | account       | S    | 20         |
+| 21  | Password reset by email                      | Shipped | account       | S    | 20         |
 | 22  | Send receipts and statements to tenants      | Later   | notifications | M    | 5, 20      |
 | 23  | Several tenants on one lease                 | Later   | leases        | L    | -          |
 | 24  | Updates and notes on maintenance requests    | Later   | maintenance   | M    | -          |
@@ -391,21 +391,10 @@ receipts to tenants).
   weekday chosen in Settings, in the landlord's time zone (item 3 makes
   that correct).
 - Docker Compose gets a Mailpit service for local runs.
+- Already there since item 21: the SMTP settings and `internal/mail`, which
+  sends one message directly. This item adds the outbox and the digest.
 - Tests: the outbox worker against a fake sender (retries, no double
   send), digest content as a domain test.
-
-### 21. Password reset by email
-
-A forgotten password today means asking whoever runs the server to change
-the hash in the database.
-
-- "Forgot password" sends a link with a random token (stored hashed, 30
-  minutes, one use). Setting a new password bumps `token_version`, so other
-  sessions end.
-- The answer is the same whether the email exists or not, and the limiter
-  from item 1 applies.
-- Depends on item 20.
-- Tests: token expiry, one use, unknown email answers the same.
 
 ### 22. Send receipts and statements to tenants
 
@@ -690,3 +679,22 @@ property block is shared with the receipt (`loadLetterhead`). The web page
 period in the address and prints; the lease page has a "Statement" button.
 As planned it covers one lease, renewals have their own, and there is no CSV
 version yet.
+
+### 21. Password reset by email
+
+Built before item 20, with only the part of it a reset needs: SMTP settings
+(`SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM`,
+`APP_URL`) and a small `internal/mail` sender on `net/smtp` that builds the
+message from fixed headers. `POST /api/auth/forgot` always answers `202`
+with the same text; for an existing account it creates a 32-byte random
+token, stores its SHA-256 in `password_resets` with a 30 minute expiry, and
+emails `APP_URL/reset-password#token=...` after the response, so neither the
+answer nor its timing shows whether the account exists. The token sits after
+`#` so it never reaches a server log. `POST /api/auth/reset` uses the token
+in one transaction: it marks it and every other open link of the account
+used, sets the password and bumps `token_version`, which ends every session,
+and signs this one in. Limits follow item 1: per address, per email and
+address, at most 3 reset emails an hour per account (more are dropped
+quietly), and reset attempts per address. Without a mail server the link is
+hidden and the endpoints answer `404`. There is no outbox: a failed send is
+logged, and the user asks again.

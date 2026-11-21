@@ -113,6 +113,12 @@ The API reads its settings from the environment:
 | `CORS_ORIGINS`       |         | Comma separated origins allowed to call the API directly   |
 | `ALLOW_REGISTRATION` | `true`  | `false` lets only the first account sign up                |
 | `TRUSTED_PROXIES`    |         | Comma separated proxy addresses or CIDRs (see below)       |
+| `SMTP_HOST`          |         | Mail server; without it nothing is emailed                 |
+| `SMTP_PORT`          | `587`   | STARTTLS is used when the server offers it                 |
+| `SMTP_USERNAME`      |         | With `SMTP_PASSWORD`, to log in to the mail server         |
+| `SMTP_PASSWORD`      |         |                                                            |
+| `MAIL_FROM`          |         | Required with `SMTP_HOST`, e.g. `Estates <me@example.com>` |
+| `APP_URL`            |         | Required with `SMTP_HOST`: the web app's address for links |
 
 ### Signing in from the internet
 
@@ -161,6 +167,18 @@ This setup serves plain HTTP. If you put a TLS proxy in front of it, have
 the proxy send `Strict-Transport-Security: max-age=31536000` so browsers
 never fall back to HTTP. The app does not send it itself, because over plain
 HTTP it would be ignored at best.
+
+### Forgotten passwords
+
+With a mail server set up (`SMTP_HOST`, `MAIL_FROM` and `APP_URL`), the
+sign-in page offers "Forgot your password?". It emails a link that works
+once, for 30 minutes; only a hash of it is stored. Setting the new password
+signs out every device and any other open link stops working. The page
+answers the same whether or not the email has an account, and the email is
+sent after it has answered, so the timing does not tell either. Requests
+are limited per address and per email and address, and an account gets at
+most 3 reset emails an hour whoever asks. Without a mail server the link is
+not shown and the endpoints answer `404`.
 
 ## Running locally
 

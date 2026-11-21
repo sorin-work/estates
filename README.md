@@ -258,7 +258,9 @@ one; the page offers the zone your device is in). It decides when rent
 falls due, when it becomes overdue, which month the dashboard calls this
 month and when reminders appear. Because the job runs every hour, a charge
 can show up to an hour after midnight where you are. Dates you type, such as
-payment and expense dates, are never shifted.
+payment and expense dates, are never shifted, and the forms fill in today's
+date in your account's zone, with a note when your device is set to a
+different one.
 
 A charge is overdue once its grace period has passed: rent due on the 1st
 with 5 days grace is overdue from the 7th. If the lease has a late fee, one

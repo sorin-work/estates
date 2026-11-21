@@ -78,7 +78,7 @@ only changes how amounts are shown.
 | POST   | `/api/leases/{id}/rent-changes`   | `{effective_date, rent_cents, notes}`                        |
 | DELETE | `/api/rent-changes/{id}`          |                                                              |
 | GET    | `/api/leases/{id}/ledger`         | Charges with what is paid on each, payments and the balance  |
-| GET    | `/api/leases/{id}/statement`      | `?from=&to=` (default: lease start to today); opening balance, lines with the running balance, closing balance |
+| GET    | `/api/leases/{id}/statement`      | `?from=&to=` (default: the lease start or its first earlier entry, to today); opening balance, lines with the running balance, closing balance |
 | POST   | `/api/leases/{id}/charges`        | `{kind: utility\|late_fee\|other, description, amount_cents, due_date}` |
 | DELETE | `/api/charges/{id}`               |                                                              |
 | POST   | `/api/leases/{id}/payments`       | `{amount_cents, paid_on, method, reference, notes}`          |

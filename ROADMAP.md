@@ -681,10 +681,12 @@ planned. Dumps are owned by root on the host, so reading them needs `sudo`.
 paid before the period), the charges and payments in the period in date
 order with charges first on the same day, the running balance and the
 closing balance; charges due after the period are left out and payments made
-in advance are not. `GET /api/leases/{id}/statement?from=&to=` (default: the
-lease start to today) feeds it every charge, legacy deposit charges
-included, exactly as the ledger does, and every payment up to the ledger's 500. The landlord, tenant and property block is shared with the receipt
-(`loadLetterhead`). The web page `/leases/:id/statement` sits outside the
-layout like the receipt, keeps the period in the address and prints; the
-lease page has a "Statement" button. As planned it covers one lease,
-renewals have their own, and there is no CSV version yet.
+in advance are not. `GET /api/leases/{id}/statement?from=&to=` (default:
+from the lease start, or the first charge or payment if one came earlier, to
+today) feeds it every charge, legacy deposit charges included, as the ledger
+does, and every payment with no page limit. The landlord, tenant and
+property block is shared with the receipt (`loadLetterhead`). The web page
+`/leases/:id/statement` sits outside the layout like the receipt, keeps the
+period in the address and prints; the lease page has a "Statement" button.
+As planned it covers one lease, renewals have their own, and there is no CSV
+version yet.

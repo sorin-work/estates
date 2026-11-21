@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/mail"
 	"net/netip"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -29,6 +31,15 @@ type Config struct {
 	// TrustedProxies are the proxies whose X-Forwarded-For header is
 	// believed, as CIDR prefixes.
 	TrustedProxies []netip.Prefix
+	// SMTP is the mail server. Email features are off without SMTPHost.
+	SMTPHost     string
+	SMTPPort     int
+	SMTPUsername string
+	SMTPPassword string
+	MailFrom     string
+	// AppURL is where people open the web app, for links in email, such as
+	// https://estates.example.com.
+	AppURL string
 	// BillingInterval is how often rent charges and late fees are generated.
 	BillingInterval time.Duration
 }
@@ -45,6 +56,13 @@ func Load() (Config, error) {
 		BillingInterval: time.Hour,
 
 		AllowRegistration: true,
+
+		SMTPHost:     os.Getenv("SMTP_HOST"),
+		SMTPPort:     587,
+		SMTPUsername: os.Getenv("SMTP_USERNAME"),
+		SMTPPassword: os.Getenv("SMTP_PASSWORD"),
+		MailFrom:     os.Getenv("MAIL_FROM"),
+		AppURL:       strings.TrimRight(os.Getenv("APP_URL"), "/"),
 	}
 
 	var errs []error
@@ -93,8 +111,27 @@ func Load() (Config, error) {
 		}
 		cfg.TrustedProxies = append(cfg.TrustedProxies, prefix)
 	}
+	if v := os.Getenv("SMTP_PORT"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 65535 {
+			errs = append(errs, fmt.Errorf("SMTP_PORT: invalid port %q", v))
+		}
+		cfg.SMTPPort = n
+	}
+	if cfg.SMTPHost != "" {
+		if _, err := mail.ParseAddress(cfg.MailFrom); err != nil {
+			errs = append(errs, fmt.Errorf("MAIL_FROM is required with SMTP_HOST: %w", err))
+		}
+		u, err := url.Parse(cfg.AppURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			errs = append(errs, errors.New("APP_URL is required with SMTP_HOST, like https://estates.example.com"))
+		}
+	}
 	return cfg, errors.Join(errs...)
 }
+
+// MailEnabled reports whether email can be sent.
+func (c Config) MailEnabled() bool { return c.SMTPHost != "" }
 
 // parsePrefix reads a CIDR prefix, or a single address as a prefix of one.
 func parsePrefix(s string) (netip.Prefix, error) {

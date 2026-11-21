@@ -91,3 +91,35 @@ func TestLoadReportsAllProblems(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadMail(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://localhost/estates")
+	t.Setenv("JWT_SECRET", strings.Repeat("x", 32))
+
+	cfg, err := Load()
+	if err != nil || cfg.MailEnabled() {
+		t.Fatalf("mail should be off by default: %v %+v", err, cfg)
+	}
+
+	t.Setenv("SMTP_HOST", "smtp.example.com")
+	t.Setenv("SMTP_PORT", "2525")
+	t.Setenv("MAIL_FROM", "Estates <noreply@example.com>")
+	t.Setenv("APP_URL", "https://estates.example.com/")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.MailEnabled() || cfg.SMTPPort != 2525 || cfg.AppURL != "https://estates.example.com" {
+		t.Errorf("unexpected %+v", cfg)
+	}
+
+	t.Setenv("MAIL_FROM", "")
+	t.Setenv("APP_URL", "estates.example.com")
+	t.Setenv("SMTP_PORT", "smtp")
+	_, err = Load()
+	for _, want := range []string{"MAIL_FROM", "APP_URL", "SMTP_PORT"} {
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("error %v does not mention %s", err, want)
+		}
+	}
+}

@@ -96,50 +96,6 @@ heading at the top) are updated in the same pull request.
 
 ## Next
 
-### 1. Slow down password guessing, close sign-up
-
-`POST /api/auth/login` answers as fast as bcrypt allows, for as long as
-anyone keeps asking. Nothing counts failed attempts, so a script can try a
-password list against `demo@example.com` or a real account for days. And
-`POST /api/auth/register` is open to anyone who can reach the server: a
-landlord who puts the app on the internet for themselves also hosts it for
-strangers.
-
-- A small in-memory limiter in a new `httpapi/ratelimit.go`: a token bucket
-  per key with a clock the tests can replace, and a sweep that forgets idle
-  keys so the map does not grow forever.
-- Two keys on login: the client address (say 20 attempts a minute) and the
-  lower-cased email (say 5 failures in 15 minutes). Only failures count
-  against the email, so the owner signing in normally never trips it. A
-  success clears the email's count.
-- Over the limit the answer is `429` with code `too_many_attempts` and a
-  `Retry-After` header. The login page shows "Too many attempts, try again
-  in N minutes" instead of the generic error.
-- Register gets the address limit too, so nobody can create accounts in a
-  loop.
-- A new `ALLOW_REGISTRATION` setting (default `true`, so the demo and the
-  local setup keep working). When it is `false`, register answers `403`
-  with code `registration_closed`, unless there are no users at all, so a
-  fresh install can still create its first account. `GET /api/auth/config`
-  (no token needed) tells the web app whether to show the "Create an
-  account" link and route.
-- Tricky: the client address. Behind the nginx in `web/nginx.conf` every
-  request comes from the web container, so the limit would be shared by
-  everyone. nginx already sets `X-Forwarded-For`. A `TRUSTED_PROXIES`
-  setting (a list of CIDRs, empty by default) decides when that header is
-  believed; trusting it always would let a script pick a new address per
-  request. Docker Compose sets it to the compose network.
-- Tricky: the timing defence in `login` (`dummyHash`) must still run for
-  unknown emails, and a limited email must answer the same way whether or
-  not the account exists, or the limiter becomes a way to find accounts.
-- Undecided: whether the limiter should also lock the account for a while.
-  I lean towards no. It hands anyone a way to lock the owner out, and the
-  per-email bucket already makes guessing useless.
-- Tests: unit tests for the bucket with a fake clock; router tests for 429
-  and `Retry-After`, the count reset on success, the closed sign-up with and
-  without existing users, and the forwarded header only trusted from a
-  listed proxy. A Vitest case for the login page message.
-
 ### 2. Security headers
 
 The API sets `X-Content-Type-Options` only on document downloads, and the
@@ -789,3 +745,19 @@ Some places (several US states and cities, parts of Canada) require
 interest to be paid on deposits held. A rate per property or per lease and
 a yearly interest line in the deposit record would cover it. It is a niche
 need and the rules differ widely.
+
+## Shipped
+
+### 1. Slow down password guessing, close sign-up
+
+Login is limited by address (20 attempts a minute) and by email (5 wrong
+passwords in 15 minutes, cleared by a correct one), and sign-up by address
+(10 an hour). Over a limit the API answers `429` with `Retry-After`, and the
+sign-in page shows the server's "try again in N minutes". The email limit
+applies to unknown emails the same way. `ALLOW_REGISTRATION=false` closes
+sign-up once an account exists, and `GET /api/auth/config` lets the web app
+hide the link and show "Sign-up is closed". `TRUSTED_PROXIES` decides whose
+`X-Forwarded-For` is believed, read from the right; Docker Compose sets it
+to `172.16.0.0/12`. As planned there is no account lockout. The limits are
+in memory and per process, so a restart clears them and several API
+instances would each allow the full amount.

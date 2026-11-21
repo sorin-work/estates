@@ -47,7 +47,8 @@ attention and a profit and loss report per property.
 - **Activity**: a history of what was added, changed or deleted, for the
   whole account and for each lease.
 - **Everything else**: quick search from the sidebar, a currency setting,
-  dark mode, keyboard and screen reader friendly forms and dialogs.
+  dark mode, keyboard and screen reader friendly forms and dialogs, limits
+  on password guessing and a switch to close sign-up.
 
 ## Stack
 
@@ -97,17 +98,40 @@ docker compose exec db pg_dump -U estates estates > estates-backup.sql
 
 The API reads its settings from the environment:
 
-| Variable           | Default  | Notes                                                       |
-| ------------------ | -------- | ----------------------------------------------------------- |
-| `DATABASE_URL`     |          | Required. A Postgres connection string                      |
-| `JWT_SECRET`       |          | Required, at least 32 characters. Signs login tokens        |
-| `ADDR`             | `:4200`  | Address to listen on                                        |
-| `TOKEN_TTL`        | `168h`   | How long a login lasts                                      |
-| `BILLING_INTERVAL` | `1h`     | How often rent, late fees and recurring expenses are added  |
-| `LOG_LEVEL`        | `info`   | `debug`, `info`, `warn` or `error`                          |
-| `LOG_FORMAT`       | `json`   | `json` or `text`                                            |
-| `SEED_DEMO`        | `false`  | Create the demo account on start (Docker Compose sets it)   |
-| `CORS_ORIGINS`     |          | Comma separated origins allowed to call the API directly    |
+| Variable             | Default | Notes                                                      |
+| -------------------- | ------- | ---------------------------------------------------------- |
+| `DATABASE_URL`       |         | Required. A Postgres connection string                     |
+| `JWT_SECRET`         |         | Required, at least 32 characters. Signs login tokens       |
+| `ADDR`               | `:4200` | Address to listen on                                       |
+| `TOKEN_TTL`          | `168h`  | How long a login lasts                                     |
+| `BILLING_INTERVAL`   | `1h`    | How often rent, late fees and recurring expenses are added |
+| `LOG_LEVEL`          | `info`  | `debug`, `info`, `warn` or `error`                         |
+| `LOG_FORMAT`         | `json`  | `json` or `text`                                           |
+| `SEED_DEMO`          | `false` | Create the demo account on start (Docker Compose sets it)  |
+| `CORS_ORIGINS`       |         | Comma separated origins allowed to call the API directly   |
+| `ALLOW_REGISTRATION` | `true`  | `false` lets only the first account sign up                |
+| `TRUSTED_PROXIES`    |         | Comma separated proxy addresses or CIDRs (see below)       |
+
+### Signing in from the internet
+
+The API slows down password guessing. One address can try to sign in 20
+times a minute, and an email gets 5 wrong passwords in 15 minutes before
+further attempts wait (a correct password clears the count). Sign-up is
+limited to 10 accounts an hour per address. Over a limit the API answers
+`429` with a `Retry-After` header, and the sign-in page says how long to
+wait. The counts live in memory, so a restart clears them.
+
+If the app is reachable by people other than you, set
+`ALLOW_REGISTRATION=false` once your account exists. A fresh install can
+still create its first account.
+
+To limit by the real client address the API has to know which proxies to
+believe for `X-Forwarded-For`. Docker Compose sets `TRUSTED_PROXIES` to
+`172.16.0.0/12`, the range Docker gives its networks, so the nginx
+container counts. If your own network uses addresses in that range, or you
+run a proxy of your own in front, set it to exactly the proxy addresses.
+Anything that can reach the API directly from a trusted address can claim
+to be any client.
 
 ## Running locally
 
@@ -186,7 +210,7 @@ web/
 
 ## API conventions
 
-- All endpoints except `/api/auth/*` and `/healthz` need an
+- All endpoints except register, login, `/api/auth/config` and `/healthz` need an
   `Authorization: Bearer <token>` header. Tokens last 7 days.
 - **Money** is integer cents (`145000` is $1,450.00). **Dates** are
   `YYYY-MM-DD` with no timezone.
@@ -224,4 +248,3 @@ repairs, unpaid rent) count as income in the profit and loss report. When a
 lease is renewed the deposit moves to the new lease. Once a tenant moves
 out the dashboard reminds you to return the deposit; the deadline (30 days
 by default) is set in Settings.
-

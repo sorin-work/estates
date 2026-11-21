@@ -1,8 +1,8 @@
 # API reference
 
-The API is JSON over HTTP under `/api`. Everything except `/api/auth/register`,
-`/api/auth/login` and `/healthz` needs an `Authorization: Bearer <token>`
-header. See the README for the conventions on money, dates and errors.
+The API is JSON over HTTP under `/api`. Everything except
+`/api/auth/register`, `/api/auth/login`, `/api/auth/config` and `/healthz`
+needs an `Authorization: Bearer <token>` header. See the README for the conventions on money, dates and errors.
 
 Every record belongs to the signed in landlord. An ID that belongs to
 someone else answers `404`, the same as one that does not exist.
@@ -13,9 +13,15 @@ someone else answers `404`, the same as one that does not exist.
 | ------ | -------------------- | ---------------------------------------------------------------------- |
 | POST   | `/api/auth/register` | `{email, name, password}`, returns `{token, expires_at, user}`         |
 | POST   | `/api/auth/login`    | `{email, password}`, same response                                     |
+| GET    | `/api/auth/config`   | `{registration_open}`; needs no token                                  |
 | GET    | `/api/auth/me`       | The signed in user                                                     |
 | PUT    | `/api/auth/me`       | `{name, currency, deposit_return_days}`                                |
 | PUT    | `/api/auth/password` | `{current_password, new_password}`; signs out other sessions and returns a new token |
+
+Login and register are rate limited. Over a limit they answer `429` with
+code `too_many_attempts` and a `Retry-After` header in seconds. With
+`ALLOW_REGISTRATION=false`, register answers `403` with code
+`registration_closed` once any account exists.
 
 `currency` is one of USD, CAD, EUR, GBP, AUD, NZD, CHF, SEK, PLN or RON. It
 only changes how amounts are shown.

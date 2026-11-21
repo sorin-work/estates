@@ -57,7 +57,7 @@ heading at the top) are updated in the same pull request.
 | --- | -------------------------------------------- | ------- | ------------- | ---- | ---------- |
 | 1   | Slow down password guessing, close sign-up   | Shipped | security      | S    | -          |
 | 2   | Security headers                             | Shipped | security      | S    | -          |
-| 3   | The landlord's time zone decides "today"     | Next    | rent          | M    | -          |
+| 3   | The landlord's time zone decides "today"     | Shipped | rent          | M    | -          |
 | 4   | Scheduled backups and a restore guide        | Next    | ops           | S    | -          |
 | 5   | Tenant statements                            | Next    | rent          | S    | -          |
 | 6   | Receipts and invoices on expenses            | Later   | expenses      | S    | -          |
@@ -95,50 +95,6 @@ heading at the top) are updated in the same pull request.
 | 38  | Interest on deposits                         | Maybe   | deposits      | S    | -          |
 
 ## Next
-
-### 3. The landlord's time zone decides "today"
-
-`domain.Today()` is the current date in UTC, and so is the clock behind
-every handler (`Server.today`) and the billing loop (`billing.Run`). For a
-landlord in California the new month starts at 4pm on the last day: rent
-for tomorrow is charged, "overdue since" moves and the dashboard's "this
-month" flips while it is still today for them. In Sydney or Auckland the
-opposite happens in the morning. Late fees are added a day early or late in
-the same way.
-
-- Data: `time_zone text NOT NULL DEFAULT 'UTC'` on `users`, an IANA name.
-  `PUT /api/auth/me` takes it, validated with `time.LoadLocation`. The
-  settings page offers the browser's zone
-  (`Intl.DateTimeFormat().resolvedOptions().timeZone`) as the default and a
-  searchable list from `Intl.supportedValuesOf('timeZone')`.
-- `domain.TodayIn(loc)` next to `Today`. `Server.today` becomes
-  `func(r *http.Request) domain.Date`, or a helper that reads the user's
-  zone once per request; the forty or so call sites change mechanically.
-  Tests keep replacing the clock.
-- Billing: `BillAll` uses one `asOf` for every lease. It needs the date per
-  owner. `BillableLeases` returns the owner's zone with each lease (one more
-  join it already has the tables for), and the loop works out the date for
-  each zone once per run.
-- `api/Dockerfile` already installs `tzdata`. For local runs without it,
-  import `time/tzdata` in `cmd/api` so the binary carries the zone
-  database.
-- Tricky: existing accounts. `UTC` keeps today's behaviour, so nothing
-  moves until the landlord picks a zone. The settings page can point out
-  that the browser's zone differs from the saved one.
-- Tricky: the billing interval is an hour, so a charge can still arrive up
-  to an hour after local midnight. That is fine, but the README should stop
-  implying it happens at midnight.
-- Tricky: the dates stored in the database (`created_at` for activity) are
-  timestamps and display fine already; only the "what day is it" decisions
-  change. Payment and expense dates typed by the user are plain dates and
-  are not touched.
-- Undecided: a zone per property instead of per landlord. Someone with
-  buildings in two zones exists, but rent is still one person's to-do
-  list. I lean towards per landlord.
-- Tests: domain tests for `TodayIn` around midnight; a billing test with
-  two owners in different zones billed in the same run; a router test that
-  the dashboard month follows the user's zone; Vitest for the settings
-  field.
 
 ### 4. Scheduled backups and a restore guide
 
@@ -748,3 +704,18 @@ left to the API so headers are not doubled. A new API middleware sets
 nothing uses it. HSTS is documented for whoever adds TLS, not sent. The CI
 docker job checks for the CSP and `nosniff`. Still open: no browser test
 proves every page renders under the policy, and no report endpoint.
+
+### 3. The landlord's time zone decides "today"
+
+`users.time_zone` (default `UTC`) is set in Settings from a select of every
+zone the browser knows, with a button to use the device's zone when it
+differs from the saved one; `PUT /api/auth/me` validates it with
+`domain.LoadZone`, which also refuses `Local`, and keeps the saved zone when
+the field is left out. `requireAuth` loads the zone with the user it already
+reads, and every handler asks `s.today(r)` instead of a global clock. The
+billing loop (`billing.RunOnce`) bills each time zone in turn as of the date
+it is there, through a zone filter on `BillableLeases` and
+`DueRecurringExpenses`. The binary embeds `time/tzdata`. As planned the zone
+is per landlord, not per property. Instead of a searchable list the select
+relies on typing to jump, which every browser supports. The demo seed still
+dates its history from the UTC date.

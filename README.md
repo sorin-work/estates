@@ -253,6 +253,13 @@ job runs every hour (`BILLING_INTERVAL`) and creates any charges that have
 fallen due; it is idempotent, so running it again changes nothing. "Update
 charges now" on the Rent page runs it immediately.
 
+"Today" is the date in your time zone, set in Settings (UTC until you pick
+one; the page offers the zone your device is in). It decides when rent
+falls due, when it becomes overdue, which month the dashboard calls this
+month and when reminders appear. Because the job runs every hour, a charge
+can show up to an hour after midnight where you are. Dates you type, such as
+payment and expense dates, are never shifted.
+
 A charge is overdue once its grace period has passed: rent due on the 1st
 with 5 days grace is overdue from the 7th. If the lease has a late fee, one
 fee is added per overdue rent charge. Late fees are only added for rent that

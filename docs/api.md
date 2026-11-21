@@ -21,13 +21,17 @@ someone else answers `404`, the same as one that does not exist.
 | POST   | `/api/auth/login`    | `{email, password}`, same response                                     |
 | GET    | `/api/auth/config`   | `{registration_open}`; needs no token                                  |
 | GET    | `/api/auth/me`       | The signed in user                                                     |
-| PUT    | `/api/auth/me`       | `{name, currency, deposit_return_days}`                                |
+| PUT    | `/api/auth/me`       | `{name, currency, deposit_return_days, time_zone}`                     |
 | PUT    | `/api/auth/password` | `{current_password, new_password}`; signs out other sessions and returns a new token |
 
 Login and register are rate limited. Over a limit they answer `429` with
 code `too_many_attempts` and a `Retry-After` header in seconds. With
 `ALLOW_REGISTRATION=false`, register answers `403` with code
 `registration_closed` once any account exists.
+
+`time_zone` is an IANA name such as `America/Denver` and decides what
+"today" is for that landlord. Leaving it out keeps the saved one; accounts
+start in `UTC`.
 
 `currency` is one of USD, CAD, EUR, GBP, AUD, NZD, CHF, SEK, PLN or RON. It
 only changes how amounts are shown.

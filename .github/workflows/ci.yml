@@ -77,6 +77,8 @@ jobs:
           docker compose up -d --wait
           curl -fsS http://localhost:4200/healthz
           curl -fsS http://localhost:5175/ > /dev/null
+          curl -fsSI http://localhost:5175/ | grep -i "^content-security-policy: default-src 'self'"
+          curl -fsSI http://localhost:4200/healthz | grep -i "^x-content-type-options: nosniff"
           curl -fsS -X POST http://localhost:5175/api/auth/login \
             -H 'Content-Type: application/json' \
             -d '{"email":"demo@example.com","password":"demo-password"}' > /dev/null

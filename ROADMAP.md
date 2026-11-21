@@ -750,14 +750,21 @@ need and the rules differ widely.
 
 ### 1. Slow down password guessing, close sign-up
 
-Login is limited by address (20 attempts a minute) and by email (5 wrong
-passwords in 15 minutes, cleared by a correct one), and sign-up by address
-(10 an hour). Over a limit the API answers `429` with `Retry-After`, and the
-sign-in page shows the server's "try again in N minutes". The email limit
-applies to unknown emails the same way. `ALLOW_REGISTRATION=false` closes
-sign-up once an account exists, and `GET /api/auth/config` lets the web app
-hide the link and show "Sign-up is closed". `TRUSTED_PROXIES` decides whose
-`X-Forwarded-For` is believed, read from the right; Docker Compose sets it
-to `172.16.0.0/12`. As planned there is no account lockout. The limits are
-in memory and per process, so a restart clears them and several API
-instances would each allow the full amount.
+Login is limited by address (20 attempts a minute) and by email and address
+together (5 wrong passwords in 15 minutes, cleared by a correct one), so
+guessing from one address never locks the owner out of another. After 20
+wrong passwords for an email from all addresses, a new address starts with
+one attempt. Sign-up is limited by address (10 an hour). Limiter keys are
+hashes, each limiter keeps at most 50,000, emails over 254 characters are
+refused and auth bodies are capped at 4 KB. Over a limit the API answers
+`429` with `Retry-After`, and the sign-in page shows the server's "try again
+in N minutes". The limits apply to unknown emails the same way.
+`ALLOW_REGISTRATION=false` closes sign-up once an account exists (the first
+account is created under a table lock, so two racing sign-ups cannot both
+get in), and `GET /api/auth/config` lets the web app hide the link and show
+"Sign-up is closed". `TRUSTED_PROXIES` decides whose `X-Forwarded-For` is
+believed, read from the right; Docker Compose pins its subnet, gives nginx a
+fixed address, trusts only that and publishes the API on `127.0.0.1` only.
+As planned there is no account lockout. The limits are in memory and per
+process, so a restart clears them and several API instances would each allow
+the full amount.

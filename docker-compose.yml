@@ -26,6 +26,13 @@ services:
       # Creates demo@example.com / demo-password with a year of sample data.
       SEED_DEMO: ${SEED_DEMO:-true}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-true}
+      # Email (password reset) is off unless SMTP_HOST is set.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      APP_URL: ${APP_URL:-http://localhost:5175}
       # Only nginx in the web container may pass on the client address.
       TRUSTED_PROXIES: ${WEB_IP:-172.31.240.10}
     depends_on:

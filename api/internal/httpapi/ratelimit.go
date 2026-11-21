@@ -151,6 +151,15 @@ const (
 	failureWindow    = 15 * time.Minute
 	// signupsPerAddress is how many accounts one address may create an hour.
 	signupsPerAddress = 10
+
+	// Password reset: requests an hour per address and per email and
+	// address, reset emails an hour per account whoever asks (more are
+	// dropped quietly, so nobody can flood an inbox), and attempts to use
+	// a link per address in failureWindow.
+	forgotsPerAddress  = 10
+	forgotsPerPair     = 3
+	resetMailsPerEmail = 3
+	resetsPerAddress   = 10
 )
 
 type authLimits struct {
@@ -158,6 +167,11 @@ type authLimits struct {
 	loginByPair     *limiter
 	failuresByEmail *limiter
 	signupByAddress *limiter
+
+	forgotByAddress   *limiter
+	forgotByPair      *limiter
+	resetMailsByEmail *limiter
+	resetByAddress    *limiter
 }
 
 func newAuthLimits() authLimits {
@@ -166,6 +180,11 @@ func newAuthLimits() authLimits {
 		loginByPair:     newLimiter(failuresPerPair, failureWindow),
 		failuresByEmail: newLimiter(failuresPerEmail, failureWindow),
 		signupByAddress: newLimiter(signupsPerAddress, time.Hour),
+
+		forgotByAddress:   newLimiter(forgotsPerAddress, time.Hour),
+		forgotByPair:      newLimiter(forgotsPerPair, time.Hour),
+		resetMailsByEmail: newLimiter(resetMailsPerEmail, time.Hour),
+		resetByAddress:    newLimiter(resetsPerAddress, failureWindow),
 	}
 }
 

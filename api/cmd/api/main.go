@@ -18,6 +18,7 @@ import (
 	"github.com/sorin-work/estates/api/internal/config"
 	"github.com/sorin-work/estates/api/internal/database"
 	"github.com/sorin-work/estates/api/internal/httpapi"
+	"github.com/sorin-work/estates/api/internal/mail"
 	"github.com/sorin-work/estates/api/internal/seed"
 	"github.com/sorin-work/estates/api/internal/store"
 )
@@ -65,7 +66,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	api := httpapi.New(httpapi.Options{
+	opts := httpapi.Options{
 		Store:       st,
 		Billing:     bill,
 		Tokens:      tokens,
@@ -74,7 +75,15 @@ func run() error {
 
 		CloseRegistration: !cfg.AllowRegistration,
 		TrustedProxies:    cfg.TrustedProxies,
-	})
+	}
+	if cfg.MailEnabled() {
+		opts.Mailer = mail.SMTP{
+			Host: cfg.SMTPHost, Port: cfg.SMTPPort, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword,
+			From: cfg.MailFrom,
+		}
+		opts.AppURL = cfg.AppURL
+	}
+	api := httpapi.New(opts)
 
 	go bill.Run(ctx, cfg.BillingInterval)
 
@@ -104,7 +113,10 @@ func run() error {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	return srv.Shutdown(shutdownCtx)
+	err = srv.Shutdown(shutdownCtx)
+	// Let emails already being sent finish.
+	api.Wait()
+	return err
 }
 
 func newLogger(cfg config.Config) *slog.Logger {

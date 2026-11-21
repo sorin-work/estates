@@ -73,7 +73,7 @@ func (s *Server) authConfig(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"registration_open": open})
+	writeJSON(w, http.StatusOK, map[string]bool{"registration_open": open, "password_reset": s.resetEnabled()})
 	return nil
 }
 

@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -14,6 +15,7 @@ import (
 	"github.com/sorin-work/estates/api/internal/auth"
 	"github.com/sorin-work/estates/api/internal/billing"
 	"github.com/sorin-work/estates/api/internal/domain"
+	"github.com/sorin-work/estates/api/internal/mail"
 	"github.com/sorin-work/estates/api/internal/store"
 )
 
@@ -38,6 +40,7 @@ type Store interface {
 	documentStore
 	searchStore
 	dashboardStore
+	resetStore
 	statementStore
 }
 
@@ -64,6 +67,11 @@ type Server struct {
 	fixedToday func() domain.Date
 	// now is the current time; tests replace it.
 	now func() time.Time
+	// mailer sends email; nil when no mail server is set up.
+	mailer mail.Sender
+	// appURL is the web app's address, for links in email.
+	appURL string
+	jobs   sync.WaitGroup
 }
 
 type Options struct {
@@ -81,6 +89,9 @@ type Options struct {
 	Today func() domain.Date
 	// Now replaces the clock. "Today" is its date in the user's time zone.
 	Now func() time.Time
+	// Mailer and AppURL turn on password reset by email.
+	Mailer mail.Sender
+	AppURL string
 }
 
 func New(o Options) *Server {
@@ -92,6 +103,8 @@ func New(o Options) *Server {
 		corsOrigins: o.CORSOrigins,
 		fixedToday:  o.Today,
 		now:         o.Now,
+		mailer:      o.Mailer,
+		appURL:      o.AppURL,
 
 		closeRegistration: o.CloseRegistration,
 		trustedProxies:    o.TrustedProxies,
@@ -130,6 +143,8 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/auth/register", s.handle(s.register))
 		r.Post("/auth/login", s.handle(s.login))
 		r.Get("/auth/config", s.handle(s.authConfig))
+		r.Post("/auth/forgot", s.handle(s.forgotPassword))
+		r.Post("/auth/reset", s.handle(s.resetPassword))
 
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireAuth)
